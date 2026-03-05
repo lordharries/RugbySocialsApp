@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <title>Rugby Social Generator 🏉</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
@@ -10,16 +10,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#0d1117;font-family:sans-serif}
+    html,body{height:100%;overscroll-behavior:none}
+    body{background:#0d1117;font-family:sans-serif;-webkit-tap-highlight-color:transparent}
     input[type=color]{-webkit-appearance:none;border:none;padding:0;cursor:pointer}
     input[type=color]::-webkit-color-swatch-wrapper{padding:0}
     input[type=color]::-webkit-color-swatch{border:none;border-radius:6px}
     input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;background:rgba(255,255,255,0.15);outline:none}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#4ade80;cursor:pointer}
-    textarea,input[type=text],input{font-family:inherit}
-    ::-webkit-scrollbar{width:6px}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#4ade80;cursor:pointer}
+    textarea,input[type=text],input[type=email],input{font-family:inherit;font-size:16px}
+    button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-track{background:#0d1117}
-    ::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+    ::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
   </style>
 </head>
 <body>
@@ -861,237 +863,257 @@ function RugbySocialGenerator(){
     ? {...colors, primary:colors.secondary, secondary:colors.primary}
     : colors;
 
+  const [mobileView,setMobileView]=useState("edit"); // "edit" | "preview"
+  const [isMobile,setIsMobile]=useState(false);
+  useEffect(()=>{
+    const check=()=>setIsMobile(window.innerWidth<768);
+    check();
+    window.addEventListener("resize",check);
+    return()=>window.removeEventListener("resize",check);
+  },[]);
+
+
   const setTmpl=v=>setTemplates(t=>({...t,[tab]:v}));
+  const previewScale = isMobile ? Math.min(1, (window.innerWidth - 32) / dims.w) : 1;
+
+  const cardRender = <>
+    {tab==="fixture"&&tmpl===1&&<FixtureCard1 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="fixture"&&tmpl===2&&<FixtureCard2 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="fixture"&&tmpl===3&&<FixtureCard3 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="result"&&<ResultCardBase data={result} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="player"&&tmpl===1&&<PlayerCard1 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="player"&&tmpl===2&&<PlayerCard2 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="player"&&tmpl===3&&<PlayerCard3 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="announcement"&&<TeamAnnouncementCard data={announcement} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="motm"&&tmpl===1&&<AwardCard1 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="motm"&&tmpl===2&&<AwardCard2 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="motm"&&tmpl===3&&<AwardCard3 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="dotd"&&tmpl===1&&<AwardCard1 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="dotd"&&tmpl===2&&<AwardCard2 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="dotd"&&tmpl===3&&<AwardCard3 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+  </>;
+
+  const formContent = <>
+    <div style={{marginBottom:20}}>
+      <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Club Setup</div>
+      <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+        <button onClick={()=>logoInputRef.current?.click()} style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px dashed rgba(255,255,255,0.16)",borderRadius:8,padding:"12px 10px",color:"#aaa",cursor:"pointer",fontSize:13}}>
+          {logo?"✅ Logo uploaded":"📁 Upload club logo"}
+        </button>
+        {logo&&<img src={logo} style={{height:40,width:40,objectFit:"contain",borderRadius:6}}/>}
+        <input ref={logoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleLogoUpload}/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+        <div style={{flex:1}}><Toggle label="Auto-detect colours from logo" checked={autoColor} onChange={setAutoColor}/></div>
+        {autoColor&&palette.length>0&&(
+          <button onClick={shuffleColors} style={{flexShrink:0,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:7,padding:"5px 10px",color:"#ccc",cursor:"pointer",fontSize:15,lineHeight:1,marginBottom:10}}>🔀</button>
+        )}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+        {[["primary","Primary"],["secondary","Secondary"],["accent","Accent"]].map(([k,l])=>(
+          <div key={k}>
+            <div style={{fontSize:9,color:"#666",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{l}</div>
+            <input type="color" value={colors[k]} disabled={autoColor} onChange={e=>setColors(c=>({...c,[k]:e.target.value}))} style={{width:"100%",height:36,border:"none",borderRadius:6,cursor:autoColor?"not-allowed":"pointer",background:"none",padding:0}}/>
+          </div>
+        ))}
+      </div>
+      {autoColor&&<div style={{fontSize:11,color:"#555",marginTop:4,marginBottom:8,fontStyle:"italic"}}>Colours auto-extracted · hit 🔀 to try another combo</div>}
+      <div style={{marginTop:6}}>
+        <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Format</div>
+        <div style={{display:"flex",gap:5}}>
+          {Object.entries(FORMATS).map(([id,f])=>(
+            <button key={id} onClick={()=>setFormat(id)} style={{flex:1,padding:"10px 4px",borderRadius:8,border:format===id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:format===id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:format===id?colors.secondary:"#aaa",cursor:"pointer",fontSize:11,textAlign:"center"}}>
+              <div style={{fontWeight:format===id?700:400}}>{f.label.split("·")[0].trim()}</div>
+              <div style={{fontSize:9,opacity:0.6,marginTop:1}}>{f.tag}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{marginTop:14}}>
+        <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Font Style</div>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {FONT_OPTIONS.map(f=>(
+            <button key={f.id} onClick={()=>setFontId(f.id)} style={{textAlign:"left",padding:"11px 12px",borderRadius:8,border:fontId===f.id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:fontId===f.id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:fontId===f.id?colors.secondary:"#aaa",cursor:"pointer",fontSize:13,fontFamily:f.stack}}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{marginTop:14,padding:"12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10}}>
+        <Toggle label="Show sponsor on all cards" checked={sponsor.show} onChange={v=>setSponsor(s=>({...s,show:v}))}/>
+        {sponsor.show&&<>
+          <div style={{marginBottom:10}}>
+            <label style={{display:"block",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#777",marginBottom:4}}>Sponsor Name</label>
+            <input value={sponsor.name} onChange={e=>setSponsor(s=>({...s,name:e.target.value}))} placeholder="Acme Rugby Supplies" style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"10px 11px",color:"#f0f0f0",fontSize:14,fontFamily:"inherit",boxSizing:"border-box",outline:"none"}}/>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            {["top","bottom"].map(pos=>(
+              <button key={pos} onClick={()=>setSponsor(s=>({...s,position:pos}))} style={{flex:1,padding:"10px",borderRadius:8,border:sponsor.position===pos?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:sponsor.position===pos?`${colors.secondary}22`:"rgba(255,255,255,0.04)",color:sponsor.position===pos?colors.secondary:"#777",cursor:"pointer",fontSize:13,fontWeight:sponsor.position===pos?700:400}}>
+                {pos==="top"?"↑ Top":"↓ Bottom"}
+              </button>
+            ))}
+          </div>
+        </>}
+      </div>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:16}}>
+      {tabs.map(t=>(
+        <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"12px 5px",borderRadius:8,border:"none",background:tab===t.id?colors.secondary:"rgba(255,255,255,0.05)",color:tab===t.id?ctxt(colors.secondary):"#aaa",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?700:400,transition:"all 0.15s",fontFamily:activeFont}}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+
+    <TemplatePicker value={tmpl} onChange={setTmpl} colors={colors}/>
+    <PhotoUpload photo={currentPhoto} onUpload={handlePhotoUpload(tab)} onClear={()=>clearPhoto(tab)} inputRef={photoRefs[tab]} opacity={currentBg.opacity} blur={currentBg.blur} onOpacity={setBgOpacity} onBlur={setBgBlur}/>
+
+    {tab==="fixture"&&<>
+      <Field label="Home Team" value={fixture.homeTeam} onChange={v=>setFixture(f=>({...f,homeTeam:v}))} placeholder="Scarlets"/>
+      <Field label="Away Team" value={fixture.awayTeam} onChange={v=>setFixture(f=>({...f,awayTeam:v}))} placeholder="Opponents RFC"/>
+      <Field label="Date" value={fixture.date} onChange={v=>setFixture(f=>({...f,date:v}))} placeholder="Sat 8 Mar 2025"/>
+      <Field label="Kick-off Time" value={fixture.kickoff} onChange={v=>setFixture(f=>({...f,kickoff:v}))} placeholder="14:30"/>
+      <Field label="Venue" value={fixture.venue} onChange={v=>setFixture(f=>({...f,venue:v}))} placeholder="Parc y Scarlets"/>
+      <Field label="Competition" value={fixture.competition} onChange={v=>setFixture(f=>({...f,competition:v}))} placeholder="URC"/>
+    </>}
+    {tab==="result"&&<>
+      <Field label="Our Team" value={result.ourTeam} onChange={v=>setResult(r=>({...r,ourTeam:v}))} placeholder="Scarlets"/>
+      <Field label="Opponent" value={result.opponent} onChange={v=>setResult(r=>({...r,opponent:v}))} placeholder="Opponents RFC"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+        <Field label="Our Score" value={result.homeScore} onChange={v=>setResult(r=>({...r,homeScore:v}))} placeholder="32"/>
+        <Field label="Their Score" value={result.awayScore} onChange={v=>setResult(r=>({...r,awayScore:v}))} placeholder="17"/>
+      </div>
+      <Field label="Date" value={result.date} onChange={v=>setResult(r=>({...r,date:v}))} placeholder="Sat 8 Mar 2025"/>
+      <Field label="Competition" value={result.competition} onChange={v=>setResult(r=>({...r,competition:v}))} placeholder="URC"/>
+      <Field label="Man of the Match" value={result.motm} onChange={v=>setResult(r=>({...r,motm:v}))} placeholder="J. Thompson"/>
+      <Field label="Try Scorers" value={result.tries} onChange={v=>setResult(r=>({...r,tries:v}))} placeholder="Smith (2), Jones, Brown" multiline/>
+      <Field label="Conversions" value={result.conversions} onChange={v=>setResult(r=>({...r,conversions:v}))} placeholder="Williams (4/5)"/>
+      <Field label="Penalties" value={result.penalties} onChange={v=>setResult(r=>({...r,penalties:v}))} placeholder="Williams (2)"/>
+      <Toggle label="Show Dick of the Day 🐥" checked={result.showDotd} onChange={v=>setResult(r=>({...r,showDotd:v}))}/>
+      {result.showDotd&&<Field label="Dick of the Day 🐥" value={result.dotd} onChange={v=>setResult(r=>({...r,dotd:v}))} placeholder="P. Harrison"/>}
+    </>}
+    {tab==="player"&&<>
+      <Field label="Player Name" value={player.playerName} onChange={v=>setPlayer(p=>({...p,playerName:v}))} placeholder="Sam Warburton"/>
+      <Field label="Position" value={player.position} onChange={v=>setPlayer(p=>({...p,position:v}))} placeholder="Flanker"/>
+      <Field label="Shirt Number" value={player.shirtNumber} onChange={v=>setPlayer(p=>({...p,shirtNumber:v}))} placeholder="7"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+        <Field label="Club Caps" value={player.caps} onChange={v=>setPlayer(p=>({...p,caps:v}))} placeholder="142"/>
+        <Field label="Tries" value={player.tries} onChange={v=>setPlayer(p=>({...p,tries:v}))} placeholder="34"/>
+        <Field label="Age" value={player.age} onChange={v=>setPlayer(p=>({...p,age:v}))} placeholder="27"/>
+        <Field label="Hometown" value={player.hometown} onChange={v=>setPlayer(p=>({...p,hometown:v}))} placeholder="Cardiff"/>
+      </div>
+      <Field label="Player Quote" value={player.quote} onChange={v=>setPlayer(p=>({...p,quote:v}))} placeholder="Every game is a chance to prove yourself." multiline/>
+    </>}
+    {tab==="announcement"&&<>
+      <Field label="Team Name" value={announcement.teamName} onChange={v=>setAnnouncement(a=>({...a,teamName:v}))} placeholder="Scarlets"/>
+      <Field label="vs Opponent" value={announcement.opponent} onChange={v=>setAnnouncement(a=>({...a,opponent:v}))} placeholder="Ulster"/>
+      <Field label="Date" value={announcement.date} onChange={v=>setAnnouncement(a=>({...a,date:v}))} placeholder="Sat 15 Mar"/>
+      <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Starting XV</div>
+      {POSITIONS.slice(0,15).map((pos,i)=>(
+        <SquadPlayerField key={i} pos={pos} player={announcement.players[i]} onNameChange={v=>updateSquadPlayer(i,"name",v)} onCaptain={()=>updateSquadPlayer(i,"captain",!announcement.players[i].captain)} onVice={()=>updateSquadPlayer(i,"vice",!announcement.players[i].vice)} colors={colors}/>
+      ))}
+      <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Replacements</div>
+      {POSITIONS.slice(15).map((pos,i)=>(
+        <SquadPlayerField key={i+15} pos={pos} player={announcement.players[15+i]} onNameChange={v=>updateSquadPlayer(15+i,"name",v)} onCaptain={()=>updateSquadPlayer(15+i,"captain",!announcement.players[15+i].captain)} onVice={()=>updateSquadPlayer(15+i,"vice",!announcement.players[15+i].vice)} colors={colors}/>
+      ))}
+    </>}
+    {tab==="motm"&&<>
+      <Field label="Player Name" value={motm.playerName} onChange={v=>setMotm(m=>({...m,playerName:v}))} placeholder="Sam Warburton"/>
+      <Field label="Position" value={motm.position} onChange={v=>setMotm(m=>({...m,position:v}))} placeholder="Flanker"/>
+      <Field label="Shirt Number" value={motm.shirtNumber} onChange={v=>setMotm(m=>({...m,shirtNumber:v}))} placeholder="7"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+        <Field label="Club Caps" value={motm.caps} onChange={v=>setMotm(m=>({...m,caps:v}))} placeholder="142"/>
+        <Field label="Tries" value={motm.tries} onChange={v=>setMotm(m=>({...m,tries:v}))} placeholder="34"/>
+        <Field label="Age" value={motm.age} onChange={v=>setMotm(m=>({...m,age:v}))} placeholder="27"/>
+        <Field label="Hometown" value={motm.hometown} onChange={v=>setMotm(m=>({...m,hometown:v}))} placeholder="Cardiff"/>
+      </div>
+      <Field label="Reason for award" value={motm.reason} onChange={v=>setMotm(m=>({...m,reason:v}))} placeholder="Outstanding breakdown work and 2 tries…" multiline/>
+    </>}
+    {tab==="dotd"&&<>
+      <div style={{marginBottom:12,padding:"11px 14px",background:"rgba(248,113,113,0.07)",border:"1px solid rgba(248,113,113,0.2)",borderRadius:10}}>
+        <Field label="Award Name" value={dotd.awardName} onChange={v=>setDotd(d=>({...d,awardName:v}))} placeholder="Dick of the Day"/>
+        <Toggle label="Swap colours (secondary becomes primary)" checked={dotd.swapColors} onChange={v=>setDotd(d=>({...d,swapColors:v}))}/>
+        {dotd.swapColors&&<div style={{fontSize:10,color:"#f87171",opacity:0.7,marginTop:-4,marginBottom:4,fontStyle:"italic"}}>Secondary colour is now the card background</div>}
+      </div>
+      <Field label="Player Name" value={dotd.playerName} onChange={v=>setDotd(d=>({...d,playerName:v}))} placeholder="P. Harrison"/>
+      <Field label="Position" value={dotd.position} onChange={v=>setDotd(d=>({...d,position:v}))} placeholder="Prop"/>
+      <Field label="Shirt Number" value={dotd.shirtNumber} onChange={v=>setDotd(d=>({...d,shirtNumber:v}))} placeholder="1"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+        <Field label="Club Caps" value={dotd.caps} onChange={v=>setDotd(d=>({...d,caps:v}))} placeholder="12"/>
+        <Field label="Tries" value={dotd.tries} onChange={v=>setDotd(d=>({...d,tries:v}))} placeholder="0"/>
+        <Field label="Age" value={dotd.age} onChange={v=>setDotd(d=>({...d,age:v}))} placeholder="34"/>
+        <Field label="Hometown" value={dotd.hometown} onChange={v=>setDotd(d=>({...d,hometown:v}))} placeholder="Swansea"/>
+      </div>
+      <Field label="Reason for award" value={dotd.reason} onChange={v=>setDotd(d=>({...d,reason:v}))} placeholder="Dropped the ball twice, missed a tackle, and somehow argued with the ref…" multiline/>
+    </>}
+  </>;
 
   return(
     <div style={{minHeight:"100vh",background:"#0d1117",color:"#f0f0f0",fontFamily:activeFont,display:"flex",flexDirection:"column"}}>
-      <div style={{background:"#161b22",borderBottom:"1px solid #30363d",padding:"15px 26px",display:"flex",alignItems:"center",gap:14}}>
-        <div style={{fontSize:26}}>🏉</div>
-        <div>
-          <div style={{fontSize:19,fontWeight:700,letterSpacing:1}}>Rugby Social Generator</div>
-          <div style={{fontSize:10,color:"#777",letterSpacing:3,textTransform:"uppercase"}}>Match-day content in seconds</div>
-        </div>
-      </div>
 
-      <div style={{display:"flex",flex:1,flexWrap:"wrap"}}>
-        {/* LEFT PANEL */}
-        <div style={{width:340,minWidth:300,background:"#161b22",borderRight:"1px solid #30363d",padding:20,overflowY:"auto",maxHeight:"calc(100vh - 62px)"}}>
-
-          {/* Club Setup */}
-          <div style={{marginBottom:20}}>
-            <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Club Setup</div>
-            <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
-              <button onClick={()=>logoInputRef.current?.click()} style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px dashed rgba(255,255,255,0.16)",borderRadius:8,padding:"10px",color:"#aaa",cursor:"pointer",fontSize:13}}>
-                {logo?"✅ Logo uploaded":"📁 Upload club logo"}
-              </button>
-              {logo&&<img src={logo} style={{height:36,width:36,objectFit:"contain",borderRadius:6}}/>}
-              <input ref={logoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleLogoUpload}/>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-              <div style={{flex:1}}><Toggle label="Auto-detect colours from logo" checked={autoColor} onChange={setAutoColor}/></div>
-              {autoColor&&palette.length>0&&(
-                <button onClick={shuffleColors} title="Try a different colour combination" style={{flexShrink:0,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:7,padding:"5px 10px",color:"#ccc",cursor:"pointer",fontSize:15,lineHeight:1,marginBottom:10}}>🔀</button>
-              )}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-              {[["primary","Primary"],["secondary","Secondary"],["accent","Accent"]].map(([k,l])=>(
-                <div key={k}>
-                  <div style={{fontSize:9,color:"#666",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{l}</div>
-                  <input type="color" value={colors[k]} disabled={autoColor} onChange={e=>setColors(c=>({...c,[k]:e.target.value}))} style={{width:"100%",height:32,border:"none",borderRadius:6,cursor:autoColor?"not-allowed":"pointer",background:"none",padding:0}}/>
-                </div>
-              ))}
-            </div>
-            {autoColor&&<div style={{fontSize:11,color:"#555",marginTop:4,marginBottom:8,fontStyle:"italic"}}>Colours auto-extracted · primary &amp; secondary always contrast · hit 🔀 to try another combo</div>}
-
-            {/* Format */}
-            <div style={{marginTop:6}}>
-              <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Format</div>
-              <div style={{display:"flex",gap:5}}>
-                {Object.entries(FORMATS).map(([id,f])=>(
-                  <button key={id} onClick={()=>setFormat(id)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:format===id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:format===id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:format===id?colors.secondary:"#aaa",cursor:"pointer",fontSize:11,textAlign:"center"}}>
-                    <div style={{fontWeight:format===id?700:400}}>{f.label.split("·")[0].trim()}</div>
-                    <div style={{fontSize:9,opacity:0.6,marginTop:1}}>{f.tag}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Font */}
-            <div style={{marginTop:14}}>
-              <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Font Style</div>
-              <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                {FONT_OPTIONS.map(f=>(
-                  <button key={f.id} onClick={()=>setFontId(f.id)} style={{textAlign:"left",padding:"9px 12px",borderRadius:8,border:fontId===f.id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:fontId===f.id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:fontId===f.id?colors.secondary:"#aaa",cursor:"pointer",fontSize:13,fontFamily:f.stack}}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sponsorship */}
-            <div style={{marginTop:14,padding:"12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10}}>
-              <Toggle label="Show sponsor on all cards" checked={sponsor.show} onChange={v=>setSponsor(s=>({...s,show:v}))}/>
-              {sponsor.show&&<>
-                <div style={{marginBottom:10}}>
-                  <label style={{display:"block",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#777",marginBottom:4}}>Sponsor Name</label>
-                  <input value={sponsor.name} onChange={e=>setSponsor(s=>({...s,name:e.target.value}))} placeholder="Acme Rugby Supplies" style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"9px 11px",color:"#f0f0f0",fontSize:14,fontFamily:"inherit",boxSizing:"border-box",outline:"none"}}/>
-                </div>
-                <div>
-                  <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#777",marginBottom:6}}>Position</div>
-                  <div style={{display:"flex",gap:6}}>
-                    {["top","bottom"].map(pos=>(
-                      <button key={pos} onClick={()=>setSponsor(s=>({...s,position:pos}))} style={{flex:1,padding:"8px",borderRadius:8,border:sponsor.position===pos?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:sponsor.position===pos?`${colors.secondary}22`:"rgba(255,255,255,0.04)",color:sponsor.position===pos?colors.secondary:"#777",cursor:"pointer",fontSize:12,fontWeight:sponsor.position===pos?700:400,textTransform:"capitalize"}}>
-                        {pos === "top" ? "↑ Top" : "↓ Bottom"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>}
-            </div>
+      {/* HEADER */}
+      <div style={{background:"#161b22",borderBottom:"1px solid #30363d",padding:isMobile?"11px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>🏉</span>
+          <div>
+            <div style={{fontSize:isMobile?14:17,fontWeight:700}}>Rugby Social Generator</div>
+            {!isMobile&&<div style={{fontSize:10,color:"#777",letterSpacing:3,textTransform:"uppercase"}}>Match-day content in seconds</div>}
           </div>
-
-          {/* Card tabs */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:16}}>
-            {tabs.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 5px",borderRadius:8,border:"none",background:tab===t.id?colors.secondary:"rgba(255,255,255,0.05)",color:tab===t.id?ctxt(colors.secondary):"#aaa",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?700:400,transition:"all 0.15s",fontFamily:activeFont}}>
-                {t.label}
+        </div>
+        {isMobile&&(
+          <div style={{display:"flex",background:"rgba(255,255,255,0.06)",borderRadius:9,padding:3,gap:3}}>
+            {["edit","preview"].map(v=>(
+              <button key={v} onClick={()=>setMobileView(v)} style={{padding:"8px 14px",borderRadius:7,border:"none",background:mobileView===v?colors.secondary:"transparent",color:mobileView===v?ctxt(colors.secondary):"#888",cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.15s"}}>
+                {v==="edit"?"✏️ Edit":"👁 Preview"}
               </button>
             ))}
           </div>
+        )}
+      </div>
 
-          <TemplatePicker value={tmpl} onChange={setTmpl} colors={colors}/>
-
-          {/* Photo upload — shown on every tab */}
-          <PhotoUpload
-            photo={currentPhoto}
-            onUpload={handlePhotoUpload(tab)}
-            onClear={()=>clearPhoto(tab)}
-            inputRef={photoRefs[tab]}
-            opacity={currentBg.opacity}
-            blur={currentBg.blur}
-            onOpacity={setBgOpacity}
-            onBlur={setBgBlur}
-          />
-
-          {/* FIXTURE */}
-          {tab==="fixture"&&<>
-            <Field label="Home Team" value={fixture.homeTeam} onChange={v=>setFixture(f=>({...f,homeTeam:v}))} placeholder="Scarlets"/>
-            <Field label="Away Team" value={fixture.awayTeam} onChange={v=>setFixture(f=>({...f,awayTeam:v}))} placeholder="Opponents RFC"/>
-            <Field label="Date" value={fixture.date} onChange={v=>setFixture(f=>({...f,date:v}))} placeholder="Sat 8 Mar 2025"/>
-            <Field label="Kick-off Time" value={fixture.kickoff} onChange={v=>setFixture(f=>({...f,kickoff:v}))} placeholder="14:30"/>
-            <Field label="Venue" value={fixture.venue} onChange={v=>setFixture(f=>({...f,venue:v}))} placeholder="Parc y Scarlets"/>
-            <Field label="Competition" value={fixture.competition} onChange={v=>setFixture(f=>({...f,competition:v}))} placeholder="URC"/>
-          </>}
-
-          {/* RESULT */}
-          {tab==="result"&&<>
-            <Field label="Our Team" value={result.ourTeam} onChange={v=>setResult(r=>({...r,ourTeam:v}))} placeholder="Scarlets"/>
-            <Field label="Opponent" value={result.opponent} onChange={v=>setResult(r=>({...r,opponent:v}))} placeholder="Opponents RFC"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-              <Field label="Our Score" value={result.homeScore} onChange={v=>setResult(r=>({...r,homeScore:v}))} placeholder="32"/>
-              <Field label="Their Score" value={result.awayScore} onChange={v=>setResult(r=>({...r,awayScore:v}))} placeholder="17"/>
+      {/* BODY */}
+      {isMobile ? (
+        <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          {mobileView==="edit" ? (
+            <div style={{padding:"16px 14px 32px",background:"#161b22"}}>
+              {formContent}
+              <button onClick={downloadCard} style={{width:"100%",marginTop:16,padding:"15px",background:colors.secondary,color:ctxt(colors.secondary),border:"none",borderRadius:9,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:activeFont}}>
+                ⬇ Download Card
+              </button>
             </div>
-            <Field label="Date" value={result.date} onChange={v=>setResult(r=>({...r,date:v}))} placeholder="Sat 8 Mar 2025"/>
-            <Field label="Competition" value={result.competition} onChange={v=>setResult(r=>({...r,competition:v}))} placeholder="URC"/>
-            <Field label="Man of the Match" value={result.motm} onChange={v=>setResult(r=>({...r,motm:v}))} placeholder="J. Thompson"/>
-            <Field label="Try Scorers" value={result.tries} onChange={v=>setResult(r=>({...r,tries:v}))} placeholder="Smith (2), Jones, Brown" multiline/>
-            <Field label="Conversions" value={result.conversions} onChange={v=>setResult(r=>({...r,conversions:v}))} placeholder="Williams (4/5)"/>
-            <Field label="Penalties" value={result.penalties} onChange={v=>setResult(r=>({...r,penalties:v}))} placeholder="Williams (2)"/>
-            <Toggle label="Show Dick of the Day 🐥" checked={result.showDotd} onChange={v=>setResult(r=>({...r,showDotd:v}))}/>
-            {result.showDotd&&<Field label="Dick of the Day 🐥" value={result.dotd} onChange={v=>setResult(r=>({...r,dotd:v}))} placeholder="P. Harrison (obvious reasons)"/>}
-          </>}
-
-          {/* PLAYER */}
-          {tab==="player"&&<>
-            <Field label="Player Name" value={player.playerName} onChange={v=>setPlayer(p=>({...p,playerName:v}))} placeholder="Sam Warburton"/>
-            <Field label="Position" value={player.position} onChange={v=>setPlayer(p=>({...p,position:v}))} placeholder="Flanker"/>
-            <Field label="Shirt Number" value={player.shirtNumber} onChange={v=>setPlayer(p=>({...p,shirtNumber:v}))} placeholder="7"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-              <Field label="Club Caps" value={player.caps} onChange={v=>setPlayer(p=>({...p,caps:v}))} placeholder="142"/>
-              <Field label="Tries" value={player.tries} onChange={v=>setPlayer(p=>({...p,tries:v}))} placeholder="34"/>
-              <Field label="Age" value={player.age} onChange={v=>setPlayer(p=>({...p,age:v}))} placeholder="27"/>
-              <Field label="Hometown" value={player.hometown} onChange={v=>setPlayer(p=>({...p,hometown:v}))} placeholder="Cardiff"/>
+          ) : (
+            <div style={{padding:"20px 16px 48px",display:"flex",flexDirection:"column",alignItems:"center",background:"#0d1117"}}>
+              <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#444",marginBottom:12}}>Live Preview</div>
+              <div style={{width:dims.w*previewScale,height:dims.h*previewScale,borderRadius:12,overflow:"hidden",boxShadow:"0 16px 48px rgba(0,0,0,0.7)"}}>
+                <div ref={cardRef} style={{transformOrigin:"top left",transform:`scale(${previewScale})`}}>
+                  {cardRender}
+                </div>
+              </div>
+              <button onClick={downloadCard} style={{marginTop:20,width:"100%",maxWidth:360,padding:"15px",background:colors.secondary,color:ctxt(colors.secondary),border:"none",borderRadius:9,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:activeFont}}>
+                ⬇ Download Card
+              </button>
             </div>
-            <Field label="Player Quote" value={player.quote} onChange={v=>setPlayer(p=>({...p,quote:v}))} placeholder="Every game is a chance to prove yourself." multiline/>
-          </>}
-
-          {/* TEAM SHEET */}
-          {tab==="announcement"&&<>
-            <Field label="Team Name" value={announcement.teamName} onChange={v=>setAnnouncement(a=>({...a,teamName:v}))} placeholder="Scarlets"/>
-            <Field label="vs Opponent" value={announcement.opponent} onChange={v=>setAnnouncement(a=>({...a,opponent:v}))} placeholder="Ulster"/>
-            <Field label="Date" value={announcement.date} onChange={v=>setAnnouncement(a=>({...a,date:v}))} placeholder="Sat 15 Mar"/>
-            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Starting XV</div>
-            {POSITIONS.slice(0,15).map((pos,i)=>(
-              <SquadPlayerField key={i} pos={pos} player={announcement.players[i]} onNameChange={v=>updateSquadPlayer(i,"name",v)} onCaptain={()=>updateSquadPlayer(i,"captain",!announcement.players[i].captain)} onVice={()=>updateSquadPlayer(i,"vice",!announcement.players[i].vice)} colors={colors}/>
-            ))}
-            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Replacements</div>
-            {POSITIONS.slice(15).map((pos,i)=>(
-              <SquadPlayerField key={i+15} pos={pos} player={announcement.players[15+i]} onNameChange={v=>updateSquadPlayer(15+i,"name",v)} onCaptain={()=>updateSquadPlayer(15+i,"captain",!announcement.players[15+i].captain)} onVice={()=>updateSquadPlayer(15+i,"vice",!announcement.players[15+i].vice)} colors={colors}/>
-            ))}
-          </>}
-
-          {/* MAN OF THE MATCH */}
-          {tab==="motm"&&<>
-            <Field label="Player Name" value={motm.playerName} onChange={v=>setMotm(m=>({...m,playerName:v}))} placeholder="Sam Warburton"/>
-            <Field label="Position" value={motm.position} onChange={v=>setMotm(m=>({...m,position:v}))} placeholder="Flanker"/>
-            <Field label="Shirt Number" value={motm.shirtNumber} onChange={v=>setMotm(m=>({...m,shirtNumber:v}))} placeholder="7"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-              <Field label="Club Caps" value={motm.caps} onChange={v=>setMotm(m=>({...m,caps:v}))} placeholder="142"/>
-              <Field label="Tries" value={motm.tries} onChange={v=>setMotm(m=>({...m,tries:v}))} placeholder="34"/>
-              <Field label="Age" value={motm.age} onChange={v=>setMotm(m=>({...m,age:v}))} placeholder="27"/>
-              <Field label="Hometown" value={motm.hometown} onChange={v=>setMotm(m=>({...m,hometown:v}))} placeholder="Cardiff"/>
-            </div>
-            <Field label="Reason for award" value={motm.reason} onChange={v=>setMotm(m=>({...m,reason:v}))} placeholder="Outstanding breakdown work and 2 tries…" multiline/>
-          </>}
-
-          {/* DICK OF THE DAY */}
-          {tab==="dotd"&&<>
-            <div style={{marginBottom:12,padding:"11px 14px",background:"rgba(248,113,113,0.07)",border:"1px solid rgba(248,113,113,0.2)",borderRadius:10}}>
-              <Field label="Award Name" value={dotd.awardName} onChange={v=>setDotd(d=>({...d,awardName:v}))} placeholder="Dick of the Day"/>
-              <Toggle label="Swap colours (secondary becomes primary)" checked={dotd.swapColors} onChange={v=>setDotd(d=>({...d,swapColors:v}))}/>
-              {dotd.swapColors&&<div style={{fontSize:10,color:"#f87171",opacity:0.7,marginTop:-4,marginBottom:4,fontStyle:"italic"}}>Secondary colour is now the card background</div>}
-            </div>
-            <Field label="Player Name" value={dotd.playerName} onChange={v=>setDotd(d=>({...d,playerName:v}))} placeholder="P. Harrison"/>
-            <Field label="Position" value={dotd.position} onChange={v=>setDotd(d=>({...d,position:v}))} placeholder="Prop"/>
-            <Field label="Shirt Number" value={dotd.shirtNumber} onChange={v=>setDotd(d=>({...d,shirtNumber:v}))} placeholder="1"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-              <Field label="Club Caps" value={dotd.caps} onChange={v=>setDotd(d=>({...d,caps:v}))} placeholder="12"/>
-              <Field label="Tries" value={dotd.tries} onChange={v=>setDotd(d=>({...d,tries:v}))} placeholder="0"/>
-              <Field label="Age" value={dotd.age} onChange={v=>setDotd(d=>({...d,age:v}))} placeholder="34"/>
-              <Field label="Hometown" value={dotd.hometown} onChange={v=>setDotd(d=>({...d,hometown:v}))} placeholder="Swansea"/>
-            </div>
-            <Field label="Reason for award" value={dotd.reason} onChange={v=>setDotd(d=>({...d,reason:v}))} placeholder="Dropped the ball twice, missed a tackle, and somehow argued with the ref…" multiline/>
-          </>}
-
-          <button onClick={downloadCard} style={{width:"100%",marginTop:14,padding:"13px",background:colors.secondary,color:ctxt(colors.secondary),border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer",letterSpacing:1,fontFamily:activeFont}}>
-            ⬇ Download Card
-          </button>
+          )}
         </div>
-
-        {/* RIGHT PANEL */}
-        <div style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:32,background:"#0d1117",overflowY:"auto",maxHeight:"calc(100vh - 62px)"}}>
-          <div style={{paddingTop:tab==="announcement"?0:32}}>
-            <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#333",textAlign:"center",marginBottom:16}}>Live Preview</div>
-            <div ref={cardRef} style={{boxShadow:"0 20px 60px rgba(0,0,0,0.6)",borderRadius:12}}>
-              {tab==="fixture"&&tmpl===1&&<FixtureCard1 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="fixture"&&tmpl===2&&<FixtureCard2 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="fixture"&&tmpl===3&&<FixtureCard3 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="result"&&<ResultCardBase data={result} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="player"&&tmpl===1&&<PlayerCard1 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="player"&&tmpl===2&&<PlayerCard2 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="player"&&tmpl===3&&<PlayerCard3 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="announcement"&&<TeamAnnouncementCard data={announcement} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="motm"&&tmpl===1&&<AwardCard1 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="motm"&&tmpl===2&&<AwardCard2 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="motm"&&tmpl===3&&<AwardCard3 data={motm} awardLabel="Man of the Match" colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="dotd"&&tmpl===1&&<AwardCard1 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="dotd"&&tmpl===2&&<AwardCard2 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-              {tab==="dotd"&&tmpl===3&&<AwardCard3 data={dotd} awardLabel={dotd.awardName||"Dick of the Day"} colors={dotdColors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+      ) : (
+        <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+          <div style={{width:340,flexShrink:0,background:"#161b22",borderRight:"1px solid #30363d",overflowY:"auto",maxHeight:"calc(100vh - 58px)",padding:20}}>
+            {formContent}
+            <button onClick={downloadCard} style={{width:"100%",marginTop:14,padding:"13px",background:colors.secondary,color:ctxt(colors.secondary),border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer",letterSpacing:1,fontFamily:activeFont}}>
+              ⬇ Download Card
+            </button>
+          </div>
+          <div style={{flex:1,overflowY:"auto",maxHeight:"calc(100vh - 58px)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:32,background:"#0d1117"}}>
+            <div style={{paddingTop:tab==="announcement"?0:20}}>
+              <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#333",textAlign:"center",marginBottom:16}}>Live Preview</div>
+              <div ref={cardRef} style={{boxShadow:"0 20px 60px rgba(0,0,0,0.6)",borderRadius:12}}>
+                {cardRender}
+              </div>
+              <div style={{textAlign:"center",marginTop:12,marginBottom:24,fontSize:11,color:"#2a2a2a"}}>Instagram ready · 1080px equivalent</div>
             </div>
-            <div style={{textAlign:"center",marginTop:12,marginBottom:24,fontSize:11,color:"#2a2a2a"}}>Instagram / Twitter ready · 1080px equivalent</div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
