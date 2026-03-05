@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rugby Social Generator 🏉</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d1117; font-family: sans-serif; }
+    input[type=color] { -webkit-appearance: none; border: none; padding: 0; cursor: pointer; }
+    input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+    textarea, input[type=text], input { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1117; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+const FONT_OPTIONS = [
+  { id:"barlow",   label:"Barlow · Clean & Modern",      import:"Barlow:wght@400;600;700;900",       stack:"'Barlow', sans-serif" },
+  { id:"oswald",   label:"Oswald · Bold & Sporty",       import:"Oswald:wght@400;600;700",           stack:"'Oswald', sans-serif" },
+  { id:"playfair", label:"Playfair Display · Editorial", import:"Playfair+Display:wght@400;700;900", stack:"'Playfair Display', serif" },
+];
+
+const DEFAULT_COLORS = { primary:"#1a3a2a", secondary:"#c8a84b", accent:"#ffffff" };
+
+const FORMATS = {
+  square:   { label:"Square · 1:1",   w:540, h:540,  tag:"Instagram Post" },
+  portrait: { label:"Portrait · 4:5", w:540, h:675,  tag:"Instagram Portrait" },
+  story:    { label:"Story · 9:16",   w:540, h:960,  tag:"Story / Reel" },
+};
+
+// Returns a sorted array of hex colour candidates from an image (most prominent first)
+function extractPaletteFromImage(imgEl) {
+  const canvas = document.createElement("canvas");
+  const size = 100; canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imgEl, 0, 0, size, size);
+  const data = ctx.getImageData(0, 0, size, size).data;
+  const colorMap = {};
+  for (let i = 0; i < data.length; i += 4) {
+    const r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];
+    if (a<128) continue;
+    // Quantise to 24-step grid for a richer palette
+    const key=`${Math.round(r/24)*24},${Math.round(g/24)*24},${Math.round(b/24)*24}`;
+    colorMap[key]=(colorMap[key]||0)+1;
+  }
+  const toHex=key=>"#"+key.split(",").map(x=>Math.min(255,parseInt(x)).toString(16).padStart(2,"0")).join("");
+  // Remove near-white and near-black, keep everything else
+  const isNeutral=key=>{const[r,g,b]=key.split(",").map(Number);const l=(r+g+b)/3;return l>210||l<30;};
+  return Object.entries(colorMap)
+    .filter(([k])=>!isNeutral(k))
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k])=>toHex(k));
+}
+
+// Given a palette array and a current offset, find the next valid (primary, secondary) pair
+// Rule: one must be "light" (luminance > 0.45) and the other "dark" (luminance <= 0.45)
+function pickContrastingPair(palette, offset=0) {
+  const isLight = hex => luminance(hex) > 0.45;
+  // Try every combination in order of prominence, starting from offset
+  let tried = 0;
+  for (let i = offset; tried < palette.length * palette.length; i++) {
+    const pi = i % palette.length;
+    for (let j = 0; j < palette.length; j++) {
+      if (j === pi) continue;
+      const p = palette[pi], s = palette[j];
+      if (isLight(p) !== isLight(s)) { // one light, one dark — valid pair
+        return { primary: p, secondary: s, nextOffset: (pi + 1) % palette.length };
+      }
+    }
+    tried++;
+  }
+  // Fallback if palette is all same tone
+  return { primary: palette[0]||"#1a3a2a", secondary: palette[1]||"#c8a84b", nextOffset: 0 };
+}
+
+function luminance(hex){const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;return 0.299*r+0.587*g+0.114*b;}
+function ctxt(bg){return luminance(bg)>0.5?"#111111":"#ffffff";}
+
+// ── SHARED BACKGROUND PHOTO LAYER ────────────────────────────────
+// Full-bleed photo with a heavy gradient overlay so text stays readable.
+// The overlay uses the card's primary colour so it always feels on-brand.
+function BgPhoto({ photo, primary }) {
+  if (!photo) return null;
+  return (
+    <>
+      <img src={photo} style={{
+        position:"absolute", inset:0, width:"100%", height:"100%",
+        objectFit:"cover", zIndex:0, pointerEvents:"none"
+      }}/>
+      <div style={{
+        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
+        background:`linear-gradient(to top, ${primary}f0 0%, ${primary}b0 40%, ${primary}70 70%, ${primary}44 100%)`
+      }}/>
+    </>
+  );
+}
+
+// ── SHARED SUB-COMPONENTS ────────────────────────────────────────
+
+function InfoPill({label,value,colors}){
+  return <div>
+    <div style={{fontSize:10,color:colors.secondary,letterSpacing:2,textTransform:"uppercase"}}>{label}</div>
+    <div style={{color:"#fff",fontSize:14,fontWeight:600,textShadow:"0 1px 4px rgba(0,0,0,0.6)"}}>{value}</div>
+  </div>;
+}
+
+function StatBlock({label,value,colors}){
+  return <div style={{background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)",borderRadius:8,padding:"9px 11px",border:"1px solid rgba(255,255,255,0.08)"}}>
+    <div style={{fontSize:10,color:colors.secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{label}</div>
+    <div style={{fontSize:13,color:"#fff",whiteSpace:"pre-line"}}>{value}</div>
+  </div>;
+}
+
+// ── FIXTURE CARDS ────────────────────────────────────────────────
+
+function FixtureCard1({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors; const txt=ctxt(primary);
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",inset:0,background:`radial-gradient(circle at 80% 20%, ${secondary}33 0%, transparent 60%)`,zIndex:0}}/>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:6,background:secondary,zIndex:3}}/>
+      <div style={{padding:"32px 40px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        {logo&&<img src={logo} style={{height:68,width:68,objectFit:"contain",marginBottom:16,filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.6))"}}/>}
+        <div style={{fontSize:12,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:8}}>Fixture Preview</div>
+        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:6,textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.homeTeam||"Home Team"}</div>
+        <div style={{fontSize:22,color:secondary,letterSpacing:2,marginBottom:6}}>vs</div>
+        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:"auto",textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.awayTeam||"Away Team"}</div>
+        <div style={{borderTop:`1px solid ${secondary}66`,paddingTop:16,display:"flex",gap:28,flexWrap:"wrap"}}>
+          {data.date&&<InfoPill label="Date" value={data.date} colors={colors}/>}
+          {data.kickoff&&<InfoPill label="Kick-off" value={data.kickoff} colors={colors}/>}
+          {data.venue&&<InfoPill label="Venue" value={data.venue} colors={colors}/>}
+          {data.competition&&<InfoPill label="Competition" value={data.competition} colors={colors}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FixtureCard2({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors; const txtS=ctxt(secondary);
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<>
+        <div style={{position:"absolute",top:0,left:0,bottom:0,width:"50%",background:primary,zIndex:0}}/>
+        <div style={{position:"absolute",top:0,right:0,bottom:0,width:"50%",background:"#111",zIndex:0}}/>
+      </>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+      <div style={{position:"relative",zIndex:3,padding:"32px 28px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+          {logo&&<img src={logo} style={{height:56,width:56,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+          <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase"}}>Fixture</div>
+        </div>
+        <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:12}}>
+          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.homeTeam||"Home Team"}</div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{flex:1,height:2,background:`${secondary}55`}}/>
+            <div style={{fontSize:18,fontWeight:900,color:secondary,letterSpacing:4}}>VS</div>
+            <div style={{flex:1,height:2,background:`${secondary}55`}}/>
+          </div>
+          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.awayTeam||"Away Team"}</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
+          {data.date&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:6,padding:"8px 10px",border:"1px solid rgba(255,255,255,0.1)"}}><div style={{fontSize:9,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Date</div><div style={{color:"#fff",fontSize:13,fontWeight:700}}>{data.date}</div></div>}
+          {data.kickoff&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:6,padding:"8px 10px",border:"1px solid rgba(255,255,255,0.1)"}}><div style={{fontSize:9,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Kick-off</div><div style={{color:"#fff",fontSize:13,fontWeight:700}}>{data.kickoff}</div></div>}
+          {data.venue&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:6,padding:"8px 10px",gridColumn:"1/-1",border:"1px solid rgba(255,255,255,0.1)"}}><div style={{fontSize:9,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Venue</div><div style={{color:"#fff",fontSize:13,fontWeight:700}}>{data.venue}</div></div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FixtureCard3({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors;
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<>
+        <div style={{position:"absolute",bottom:-60,right:-60,width:320,height:320,borderRadius:"50%",border:`40px solid ${secondary}22`,zIndex:0}}/>
+        <div style={{position:"absolute",bottom:40,right:40,width:180,height:180,borderRadius:"50%",border:`20px solid ${secondary}15`,zIndex:0}}/>
+      </>}
+      <div style={{position:"absolute",left:0,top:0,bottom:0,width:5,background:secondary,zIndex:3}}/>
+      <div style={{padding:"36px 36px 36px 44px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"auto"}}>
+          <div>
+            <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:12}}>Upcoming Match</div>
+            {data.competition&&<div style={{display:"inline-block",background:secondary,color:ctxt(secondary),fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1,marginBottom:16}}>{data.competition}</div>}
+            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,marginBottom:8,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.homeTeam||"Home"}</div>
+            <div style={{fontSize:16,color:secondary,letterSpacing:3,marginBottom:8}}>— vs —</div>
+            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.awayTeam||"Away"}</div>
+          </div>
+          {logo&&<img src={logo} style={{height:60,width:60,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+        </div>
+        <div style={{display:"flex",gap:24,marginTop:24,paddingTop:16,borderTop:`1px solid ${secondary}44`}}>
+          {data.date&&<div><div style={{fontSize:10,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Date</div><div style={{color:"#fff",fontWeight:600,fontSize:15,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{data.date}</div></div>}
+          {data.kickoff&&<div><div style={{fontSize:10,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>KO</div><div style={{color:"#fff",fontWeight:600,fontSize:15,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{data.kickoff}</div></div>}
+          {data.venue&&<div><div style={{fontSize:10,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Venue</div><div style={{color:"#fff",fontWeight:600,fontSize:15,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{data.venue}</div></div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RESULT CARDS ─────────────────────────────────────────────────
+
+function ResultCardBase({data,colors,logo,font,variant,photo,dims}){
+  const {primary,secondary}=colors;
+  const won=parseInt(data.homeScore||0)>parseInt(data.awayScore||0);
+  const drew=parseInt(data.homeScore||0)===parseInt(data.awayScore||0);
+  const label=won?"Victory":drew?"Draw":"Defeat";
+  const rc=won?"#4ade80":drew?secondary:"#f87171";
+
+  if(variant===2){return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",inset:0,background:`linear-gradient(180deg, ${primary} 0%, #0d0d0d 60%)`,zIndex:0}}/>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:rc,zIndex:3}}/>
+      <div style={{padding:"28px 32px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          {logo&&<img src={logo} style={{height:50,width:50,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+          <div style={{background:rc,color:"#000",padding:"5px 18px",borderRadius:4,fontSize:13,fontWeight:800,letterSpacing:3,textTransform:"uppercase"}}>{label}</div>
+        </div>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:72,fontWeight:900,color:"#fff",letterSpacing:-4,lineHeight:1,textShadow:"0 2px 20px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}<span style={{color:rc,margin:"0 4px"}}>:</span>{data.awayScore??"–"}</div>
+          <div style={{fontSize:14,color:"#ccc",marginTop:6,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{data.ourTeam||"Our Team"} <span style={{color:"#555"}}>vs</span> {data.opponent||"Opponent"}</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,flex:1}}>
+          {data.motm&&<StatBlock label="Man of the Match ⭐" value={data.motm} colors={colors}/>}
+          {data.tries&&<StatBlock label="Try Scorers 🏉" value={data.tries} colors={colors}/>}
+          {data.conversions&&<StatBlock label="Conversions" value={data.conversions} colors={colors}/>}
+          {data.penalties&&<StatBlock label="Penalties" value={data.penalties} colors={colors}/>}
+        </div>
+        {data.showDotd&&data.dotd&&<div style={{marginTop:10,background:"rgba(0,0,0,0.5)",borderRadius:8,padding:"9px 13px",border:`1px solid ${secondary}44`}}><span style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>🐥 Dick of the Day: </span><span style={{color:"#fff",fontSize:13,fontWeight:600}}>{data.dotd}</span></div>}
+      </div>
+    </div>
+  );}
+
+  if(variant===3){return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<>
+        <div style={{position:"absolute",left:0,top:0,bottom:0,width:200,background:`${secondary}18`,zIndex:0}}/>
+      </>}
+      <div style={{position:"absolute",left:0,top:0,bottom:0,width:5,background:secondary,zIndex:3}}/>
+      <div style={{padding:"28px 32px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{fontSize:10,letterSpacing:4,color:secondary,textTransform:"uppercase"}}>Match Result</div>
+          {logo&&<img src={logo} style={{height:46,width:46,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
+          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>{data.ourTeam||"Our Team"}</div></div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:56,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1,textShadow:"0 2px 16px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}–{data.awayScore??"–"}</div>
+            <div style={{display:"inline-block",background:rc,color:"#000",padding:"2px 12px",borderRadius:20,fontSize:11,fontWeight:700,marginTop:4}}>{label}</div>
+          </div>
+          <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>{data.opponent||"Opponent"}</div></div>
+        </div>
+        <div style={{borderTop:`1px solid ${secondary}33`,borderBottom:`1px solid ${secondary}33`,padding:"10px 0",marginBottom:12,display:"flex",gap:20}}>
+          {data.competition&&<span style={{color:secondary,fontSize:12}}>{data.competition}</span>}
+          {data.date&&<span style={{color:"#ccc",fontSize:12,opacity:0.7}}>{data.date}</span>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,flex:1}}>
+          {data.motm&&<StatBlock label="Man of the Match ⭐" value={data.motm} colors={colors}/>}
+          {data.tries&&<StatBlock label="Try Scorers 🏉" value={data.tries} colors={colors}/>}
+          {data.conversions&&<StatBlock label="Conversions" value={data.conversions} colors={colors}/>}
+          {data.penalties&&<StatBlock label="Penalties" value={data.penalties} colors={colors}/>}
+        </div>
+        {data.showDotd&&data.dotd&&<div style={{marginTop:10,background:"rgba(0,0,0,0.5)",borderRadius:8,padding:"9px 13px",border:`1px solid ${secondary}44`}}><span style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>🐥 Dick of the Day: </span><span style={{color:"#fff",fontSize:13,fontWeight:600}}>{data.dotd}</span></div>}
+      </div>
+    </div>
+  );}
+
+  // variant 1
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",inset:0,background:`linear-gradient(135deg, ${secondary}22 0%, transparent 50%)`,zIndex:0}}/>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:6,background:secondary,zIndex:3}}/>
+      <div style={{padding:"28px 36px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
+          {logo&&<img src={logo} style={{height:52,width:52,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+          <div style={{background:rc,color:"#000",padding:"4px 16px",borderRadius:20,fontSize:12,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{label}</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{data.isHome?"Home":"Away"}</div><div style={{fontSize:20,fontWeight:700,color:"#fff",textShadow:"0 1px 8px rgba(0,0,0,0.8)"}}>{data.ourTeam||"Our Team"}</div></div>
+          <div style={{fontSize:50,fontWeight:900,color:"#fff",letterSpacing:-2,padding:"0 16px",textShadow:"0 2px 16px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}–{data.awayScore??"–"}</div>
+          <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{data.isHome?"Away":"Home"}</div><div style={{fontSize:20,fontWeight:700,color:"#fff",textShadow:"0 1px 8px rgba(0,0,0,0.8)"}}>{data.opponent||"Opponent"}</div></div>
+        </div>
+        <div style={{borderTop:`1px solid ${secondary}44`,borderBottom:`1px solid ${secondary}44`,padding:"11px 0",marginBottom:12,display:"flex",gap:20,flexWrap:"wrap"}}>
+          {data.competition&&<span style={{color:secondary,fontSize:12}}>{data.competition}</span>}
+          {data.date&&<span style={{color:"#ccc",fontSize:12,opacity:0.7}}>{data.date}</span>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,flex:1}}>
+          {data.motm&&<StatBlock label="Man of the Match ⭐" value={data.motm} colors={colors}/>}
+          {data.tries&&<StatBlock label="Try Scorers 🏉" value={data.tries} colors={colors}/>}
+          {data.conversions&&<StatBlock label="Conversions" value={data.conversions} colors={colors}/>}
+          {data.penalties&&<StatBlock label="Penalties" value={data.penalties} colors={colors}/>}
+        </div>
+        {data.showDotd&&data.dotd&&<div style={{marginTop:10,background:"rgba(0,0,0,0.5)",borderRadius:8,padding:"9px 13px",border:`1px solid ${secondary}44`}}><span style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>🐥 Dick of the Day: </span><span style={{color:"#fff",fontSize:13,fontWeight:600}}>{data.dotd}</span></div>}
+      </div>
+    </div>
+  );
+}
+
+// ── PLAYER CARDS ─────────────────────────────────────────────────
+
+function PlayerCard1({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors;
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",inset:0,background:`radial-gradient(circle at 80% 20%, ${secondary}33 0%, transparent 60%)`,zIndex:0}}/>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+      <div style={{padding:"28px 36px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          {logo&&<img src={logo} style={{height:56,width:56,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+          <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase"}}>Player Spotlight</div>
+        </div>
+        <div style={{marginTop:"auto"}}>
+          {data.shirtNumber&&<div style={{fontSize:72,fontWeight:900,color:`${secondary}55`,lineHeight:1,marginBottom:-10,fontFamily:"monospace"}}>{data.shirtNumber}</div>}
+          <div style={{fontSize:40,fontWeight:800,color:"#fff",lineHeight:1.05,textShadow:"0 2px 12px rgba(0,0,0,0.8)",marginBottom:3}}>{data.playerName||"Player Name"}</div>
+          <div style={{fontSize:16,color:secondary,letterSpacing:2,marginBottom:16}}>{data.position||"Position"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:data.quote?12:0}}>
+            {data.caps&&<StatBlock label="Club Caps" value={data.caps} colors={colors}/>}
+            {data.tries&&<StatBlock label="Tries" value={data.tries} colors={colors}/>}
+            {data.age&&<StatBlock label="Age" value={data.age} colors={colors}/>}
+            {data.hometown&&<StatBlock label="Hometown" value={data.hometown} colors={colors}/>}
+          </div>
+          {data.quote&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:8,padding:"10px 14px",borderLeft:`3px solid ${secondary}`}}><div style={{color:"#fff",fontSize:12,fontStyle:"italic",lineHeight:1.5}}>"{data.quote}"</div></div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard2({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors;
+  return(
+    <div style={{width:dims.w,height:dims.h,background:"#0d0d0d",position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",inset:0,background:`linear-gradient(135deg, ${primary} 0%, #1a1a1a 100%)`,zIndex:0}}/>}
+      <div style={{padding:"28px 28px 24px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3,justifyContent:"flex-end"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12}}>
+          <div>
+            {data.shirtNumber&&<div style={{fontSize:56,fontWeight:900,color:secondary,lineHeight:1,fontFamily:"monospace",marginBottom:-4}}>{data.shirtNumber}</div>}
+            <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.playerName||"Player Name"}</div>
+            <div style={{fontSize:14,color:secondary,letterSpacing:2,marginTop:3}}>{data.position||"Position"}</div>
+          </div>
+          {logo&&<img src={logo} style={{height:52,width:52,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.8))"}}/>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+          {[data.caps&&{l:"Caps",v:data.caps},data.tries&&{l:"Tries",v:data.tries},data.age&&{l:"Age",v:data.age},data.hometown&&{l:"Town",v:data.hometown}].filter(Boolean).map((s,i)=>(
+            <div key={i} style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:6,padding:"7px 8px",textAlign:"center",border:"1px solid rgba(255,255,255,0.08)"}}>
+              <div style={{fontSize:9,color:secondary,letterSpacing:1,textTransform:"uppercase"}}>{s.l}</div>
+              <div style={{fontSize:12,color:"#fff",fontWeight:700,marginTop:2}}>{s.v}</div>
+            </div>
+          ))}
+        </div>
+        {data.quote&&<div style={{marginTop:10,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:8,padding:"9px 12px",borderLeft:`3px solid ${secondary}`}}><div style={{color:"#ccc",fontSize:11,fontStyle:"italic",lineHeight:1.5}}>"{data.quote}"</div></div>}
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard3({data,colors,logo,font,photo,dims}){
+  const {primary,secondary}=colors; const txt=ctxt(primary);
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      {!photo&&<div style={{position:"absolute",right:-40,top:-40,width:300,height:300,borderRadius:"50%",background:`${secondary}18`,zIndex:0}}/>}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+      <div style={{padding:"28px 32px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"auto"}}>
+          {logo&&<img src={logo} style={{height:52,width:52,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
+        </div>
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:10}}>Player Spotlight</div>
+          {data.shirtNumber&&<div style={{fontSize:64,fontWeight:900,color:`${secondary}44`,lineHeight:1,marginBottom:-8,fontFamily:"monospace"}}>{data.shirtNumber}</div>}
+          <div style={{fontSize:32,fontWeight:800,color:"#fff",lineHeight:1.05,marginBottom:3,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.playerName||"Player Name"}</div>
+          <div style={{fontSize:14,color:secondary,letterSpacing:2,marginBottom:14}}>{data.position||"Position"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+            {data.caps&&<StatBlock label="Caps" value={data.caps} colors={colors}/>}
+            {data.tries&&<StatBlock label="Tries" value={data.tries} colors={colors}/>}
+            {data.age&&<StatBlock label="Age" value={data.age} colors={colors}/>}
+            {data.hometown&&<StatBlock label="Town" value={data.hometown} colors={colors}/>}
+          </div>
+          {data.quote&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:8,padding:"10px 12px",borderLeft:`3px solid ${secondary}`}}><div style={{color:"#fff",fontSize:11,fontStyle:"italic",lineHeight:1.5}}>"{data.quote}"</div></div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TEAM SHEET ───────────────────────────────────────────────────
+
+function TeamAnnouncementCard({data,colors,logo,font,variant,photo,dims}){
+  const {primary,secondary}=colors; const txt=ctxt(primary); const txtS=ctxt(secondary);
+  const starters=data.players.slice(0,15);
+  const reps=data.players.slice(15,23).filter(p=>p.name);
+
+  const PlayerRow=({p,i,slim})=>{
+    const badge=p.captain?"(C)":p.vice?"(VC)":null;
+    return(
+      <div style={{display:"flex",alignItems:"stretch",borderRadius:slim?3:4,overflow:"hidden"}}>
+        <div style={{width:slim?24:28,flexShrink:0,background:secondary,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{fontSize:slim?10:11,fontWeight:800,color:txtS}}>{i+1}</span>
+        </div>
+        <div style={{flex:1,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)",padding:slim?"4px 9px":"5px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontSize:slim?11:12,fontWeight:700,color:"#fff",textTransform:"uppercase",letterSpacing:0.4}}>
+            {p.name||<span style={{opacity:0.3,fontWeight:400,textTransform:"none",fontSize:10}}>TBC</span>}
+          </span>
+          {badge&&<span style={{fontSize:10,fontWeight:800,color:secondary,marginLeft:6,flexShrink:0}}>{badge}</span>}
+        </div>
+      </div>
+    );
+  };
+
+  const RepsList=()=>(
+    reps.length>0?<div style={{marginTop:9,borderTop:`1px solid ${secondary}55`,paddingTop:7}}>
+      <div style={{fontSize:9,letterSpacing:3,color:secondary,textTransform:"uppercase",marginBottom:4,fontWeight:700}}>Replacements</div>
+      <div style={{fontSize:11,color:"#ddd",lineHeight:1.7}}>
+        {data.players.slice(15,23).filter(p=>p.name).map((p,i,arr)=>(
+          <span key={i}><span style={{fontWeight:600}}>{p.name}</span>{(p.captain||p.vice)&&<span style={{color:secondary,fontSize:10,marginLeft:2}}>{p.captain?"(C)":"(VC)"}</span>}{i<arr.length-1&&<span style={{opacity:0.4}}>, </span>}</span>
+        ))}
+      </div>
+    </div>:null
+  );
+
+  if(variant===2){
+    return(
+      <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+        <BgPhoto photo={photo} primary={primary}/>
+        {!photo&&<div style={{position:"absolute",inset:0,background:`linear-gradient(135deg, ${secondary}18 0%, transparent 50%)`,zIndex:0}}/>}
+        <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+        <div style={{padding:"18px 20px 14px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:32,fontWeight:900,color:"#fff",lineHeight:1,textTransform:"uppercase",textShadow:"0 2px 8px rgba(0,0,0,0.8)"}}>Starting <span style={{color:secondary}}>XV</span></div>
+              <div style={{fontSize:11,color:"#ccc",opacity:0.7,marginTop:2}}>{data.teamName&&<span style={{fontWeight:600,opacity:1,color:"#fff"}}>{data.teamName} </span>}{data.opponent&&`vs ${data.opponent}`}{data.date&&` · ${data.date}`}</div>
+            </div>
+            {logo&&<img src={logo} style={{height:52,width:52,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.8))"}}/>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 8px",flex:1}}>
+            {starters.map((p,i)=><PlayerRow key={i} p={p} i={i} slim/>)}
+          </div>
+          <RepsList/>
+        </div>
+      </div>
+    );
+  }
+
+  if(variant===3){
+    return(
+      <div style={{width:dims.w,height:dims.h,background:"#0d0d0d",position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+        <BgPhoto photo={photo} primary="#0d0d0d"/>
+        <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+        <div style={{padding:"18px 22px 14px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:38,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:-1,textTransform:"uppercase",textShadow:"0 2px 8px rgba(0,0,0,0.8)"}}>Starting <span style={{color:secondary}}>XV</span></div>
+              {(data.teamName||data.opponent||data.date)&&<div style={{fontSize:12,color:"#666",marginTop:3}}>{data.teamName&&<span style={{color:"#aaa",fontWeight:600}}>{data.teamName} </span>}{data.opponent&&`vs ${data.opponent}`}{data.date&&` · ${data.date}`}</div>}
+            </div>
+            {logo&&<img src={logo} style={{height:54,width:54,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.8))"}}/>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:3,flex:1}}>
+            {starters.map((p,i)=>{
+              const badge=p.captain?"(C)":p.vice?"(VC)":null;
+              return(
+                <div key={i} style={{display:"flex",alignItems:"center",borderRadius:4,overflow:"hidden"}}>
+                  <div style={{width:28,flexShrink:0,background:secondary,display:"flex",alignItems:"center",justifyContent:"center",alignSelf:"stretch"}}>
+                    <span style={{fontSize:11,fontWeight:800,color:txtS}}>{i+1}</span>
+                  </div>
+                  <div style={{flex:1,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderBottom:"1px solid rgba(255,255,255,0.05)",padding:"5px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontSize:12,fontWeight:600,color:"#eee",letterSpacing:0.3}}>{p.name||<span style={{opacity:0.15,fontSize:11}}>TBC</span>}</span>
+                    {badge&&<span style={{fontSize:10,fontWeight:800,color:secondary,marginLeft:6}}>{badge}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <RepsList/>
+        </div>
+      </div>
+    );
+  }
+
+  // Variant 1
+  return(
+    <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
+      <BgPhoto photo={photo} primary={primary}/>
+      <div style={{position:"absolute",left:-6,top:90,width:10,height:56,background:secondary,borderRadius:2,zIndex:3}}/>
+      <div style={{position:"absolute",left:-6,top:156,width:10,height:28,background:secondary,opacity:0.45,borderRadius:2,zIndex:3}}/>
+      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:secondary,zIndex:3}}/>
+      <div style={{padding:"18px 22px 14px",display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+          <div>
+            <div style={{fontSize:38,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:-1,textTransform:"uppercase",textShadow:"0 2px 8px rgba(0,0,0,0.8)"}}>Starting <span style={{color:secondary}}>XV</span></div>
+            {(data.teamName||data.opponent||data.date)&&<div style={{fontSize:12,color:"#ccc",opacity:0.7,marginTop:3,letterSpacing:0.5}}>{data.teamName&&<span style={{fontWeight:600,opacity:1,color:"#fff"}}>{data.teamName}</span>}{data.opponent&&<span> vs {data.opponent}</span>}{data.date&&<span> · {data.date}</span>}</div>}
+          </div>
+          {logo&&<img src={logo} style={{height:54,width:54,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.8))"}}/>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:3,flex:1}}>
+          {starters.map((p,i)=><PlayerRow key={i} p={p} i={i}/>)}
+        </div>
+        <RepsList/>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM HELPERS ──────────────────────────────────────────────────
+
+function Field({label,value,onChange,placeholder,multiline}){
+  const s={width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"9px 11px",color:"#f0f0f0",fontSize:14,fontFamily:"inherit",boxSizing:"border-box",outline:"none",resize:multiline?"vertical":"none"};
+  return(
+    <div style={{marginBottom:10}}>
+      <label style={{display:"block",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#777",marginBottom:4}}>{label}</label>
+      {multiline?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={s}/>:<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s}/>}
+    </div>
+  );
+}
+
+function Toggle({label,checked,onChange}){
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,cursor:"pointer"}} onClick={()=>onChange(!checked)}>
+      <div style={{width:38,height:20,borderRadius:10,background:checked?"#4ade80":"rgba(255,255,255,0.15)",position:"relative",transition:"background 0.2s",flexShrink:0}}>
+        <div style={{position:"absolute",top:2,left:checked?20:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
+      </div>
+      <span style={{fontSize:13,color:"#ccc"}}>{label}</span>
+    </div>
+  );
+}
+
+function PhotoUpload({photo, onUpload, onClear, inputRef}){
+  return(
+    <div style={{marginBottom:14,padding:"12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10}}>
+      <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Background Photo</div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <button onClick={()=>inputRef.current?.click()} style={{flex:1,background:photo?"rgba(74,222,128,0.08)":"rgba(255,255,255,0.05)",border:photo?"1px solid rgba(74,222,128,0.3)":"1px dashed rgba(255,255,255,0.16)",borderRadius:8,padding:"10px",color:photo?"#4ade80":"#aaa",cursor:"pointer",fontSize:13,textAlign:"left"}}>
+          {photo?"✅ Photo uploaded — tap to change":"📷 Upload background photo"}
+        </button>
+        {photo&&<>
+          <img src={photo} style={{height:44,width:44,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.1)"}}/>
+          <button onClick={onClear} style={{background:"rgba(248,113,113,0.15)",border:"none",borderRadius:6,color:"#f87171",cursor:"pointer",padding:"8px 10px",fontSize:13,lineHeight:1}}>✕</button>
+        </>}
+        <input ref={inputRef} type="file" accept="image/*" style={{display:"none"}} onChange={onUpload}/>
+      </div>
+      {photo&&<div style={{fontSize:10,color:"#555",marginTop:6,fontStyle:"italic"}}>Photo fills the card background with a colour-tinted gradient overlay</div>}
+    </div>
+  );
+}
+
+function SquadPlayerField({pos,player,onNameChange,onCaptain,onVice,colors}){
+  const btnBase={border:"none",borderRadius:5,fontSize:10,fontWeight:800,cursor:"pointer",padding:"4px 7px",letterSpacing:1,transition:"all 0.15s"};
+  return(
+    <div style={{marginBottom:7}}>
+      <label style={{display:"block",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:3}}>{pos}</label>
+      <div style={{display:"flex",gap:5,alignItems:"center"}}>
+        <input value={player.name} onChange={e=>onNameChange(e.target.value)} placeholder="Player name" style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"#f0f0f0",fontSize:13,fontFamily:"inherit",boxSizing:"border-box",outline:"none"}}/>
+        <button onClick={onCaptain} style={{...btnBase,background:player.captain?colors.secondary:"rgba(255,255,255,0.08)",color:player.captain?ctxt(colors.secondary):"#777"}}>C</button>
+        <button onClick={onVice} style={{...btnBase,background:player.vice?colors.secondary:"rgba(255,255,255,0.08)",color:player.vice?ctxt(colors.secondary):"#777"}}>VC</button>
+      </div>
+    </div>
+  );
+}
+
+function TemplatePicker({value,onChange,colors}){
+  return(
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:7}}>Template Style</div>
+      <div style={{display:"flex",gap:6}}>
+        {[1,2,3].map(n=>(
+          <button key={n} onClick={()=>onChange(n)} style={{flex:1,padding:"9px 4px",borderRadius:8,border:value===n?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:value===n?`${colors.secondary}22`:"rgba(255,255,255,0.04)",color:value===n?colors.secondary:"#777",cursor:"pointer",fontSize:12,fontWeight:value===n?700:400}}>
+            Style {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────
+
+const POSITIONS=["1 - Loosehead Prop","2 - Hooker","3 - Tighthead Prop","4 - Lock","5 - Lock","6 - Blindside Flanker","7 - Openside Flanker","8 - Number 8","9 - Scrum Half","10 - Fly Half","11 - Left Wing","12 - Inside Centre","13 - Outside Centre","14 - Right Wing","15 - Full Back","16 - Replacement","17 - Replacement","18 - Replacement","19 - Replacement","20 - Replacement","21 - Replacement","22 - Replacement","23 - Replacement"];
+
+function RugbySocialGenerator(){
+  const [tab,setTab]=useState("fixture");
+  const [colors,setColors]=useState(DEFAULT_COLORS);
+  const [logo,setLogo]=useState(null);
+  const [autoColor,setAutoColor]=useState(false);
+  const [fontId,setFontId]=useState("barlow");
+  const [format,setFormat]=useState("square");
+  const [templates,setTemplates]=useState({fixture:1,result:1,player:1,announcement:1});
+  // Per-tab background photos
+  const [photos,setPhotos]=useState({fixture:null,result:null,player:null,announcement:null});
+  const [palette,setPalette]=useState([]);
+  const [paletteOffset,setPaletteOffset]=useState(0);
+
+  const logoInputRef=useRef();
+  const photoRefs={fixture:useRef(),result:useRef(),player:useRef(),announcement:useRef()};
+  const cardRef=useRef();
+
+  const [fixture,setFixture]=useState({homeTeam:"",awayTeam:"",date:"",kickoff:"",venue:"",competition:""});
+  const [result,setResult]=useState({ourTeam:"",opponent:"",homeScore:"",awayScore:"",isHome:true,date:"",competition:"",motm:"",tries:"",conversions:"",penalties:"",showDotd:false,dotd:""});
+  const [player,setPlayer]=useState({playerName:"",position:"",shirtNumber:"",caps:"",tries:"",age:"",hometown:"",quote:""});
+  const [announcement,setAnnouncement]=useState({teamName:"",opponent:"",date:"",players:Array(23).fill(null).map(()=>({name:"",captain:false,vice:false}))});
+
+  const activeFont=FONT_OPTIONS.find(f=>f.id===fontId)?.stack||FONT_OPTIONS[0].stack;
+  const tmpl=templates[tab];
+  const dims=FORMATS[format];
+  const currentPhoto=photos[tab];
+
+  useEffect(()=>{
+    const params=FONT_OPTIONS.map(f=>`family=${f.import}`).join("&");
+    const old=document.getElementById("rugby-gfonts");if(old)old.remove();
+    const link=document.createElement("link");link.id="rugby-gfonts";link.rel="stylesheet";
+    link.href=`https://fonts.googleapis.com/css2?${params}&display=swap`;
+    document.head.appendChild(link);
+  },[]);
+
+  const handleLogoUpload=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const url=URL.createObjectURL(file);setLogo(url);
+    if(autoColor){
+      const img=new Image();img.crossOrigin="anonymous";
+      img.onload=()=>{
+        const pal=extractPaletteFromImage(img);
+        setPalette(pal);setPaletteOffset(0);
+        const {primary,secondary}=pickContrastingPair(pal,0);
+        setColors(c=>({...c,primary,secondary}));
+      };
+      img.src=url;
+    }
+  };
+
+  useEffect(()=>{
+    if(autoColor&&logo){
+      const img=new Image();img.crossOrigin="anonymous";
+      img.onload=()=>{
+        const pal=extractPaletteFromImage(img);
+        setPalette(pal);setPaletteOffset(0);
+        const {primary,secondary}=pickContrastingPair(pal,0);
+        setColors(c=>({...c,primary,secondary}));
+      };
+      img.src=logo;
+    }
+  },[autoColor]);
+
+  const shuffleColors=()=>{
+    if(!palette.length)return;
+    const {primary,secondary,nextOffset}=pickContrastingPair(palette,paletteOffset);
+    setColors(c=>({...c,primary,secondary}));
+    setPaletteOffset(nextOffset);
+  };
+
+  const handlePhotoUpload=t=>e=>{
+    const file=e.target.files[0];if(!file)return;
+    setPhotos(p=>({...p,[t]:URL.createObjectURL(file)}));
+    e.target.value="";
+  };
+  const clearPhoto=t=>setPhotos(p=>({...p,[t]:null}));
+
+  const downloadCard=async()=>{
+    const node=cardRef.current;if(!node)return;
+    try{
+      const {default:html2canvas}=await import("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.esm.min.js");
+      const canvas=await html2canvas(node,{scale:2,useCORS:true,backgroundColor:null});
+      const a=document.createElement("a");a.download=`${tab}-card.png`;a.href=canvas.toDataURL("image/png");a.click();
+    }catch{alert("Screenshot the preview to save the card.");}
+  };
+
+  const updateSquadPlayer=(i,field,val)=>{
+    const p=announcement.players.map((pl,idx)=>{
+      if(idx!==i){
+        if(field==="captain"&&val)return{...pl,captain:false};
+        if(field==="vice"&&val)return{...pl,vice:false};
+        return pl;
+      }
+      return{...pl,[field]:val};
+    });
+    setAnnouncement(a=>({...a,players:p}));
+  };
+
+  const tabs=[
+    {id:"fixture",label:"⚡ Fixture"},
+    {id:"result",label:"🏉 Result"},
+    {id:"player",label:"👤 Player"},
+    {id:"announcement",label:"📋 Team Sheet"},
+  ];
+
+  const setTmpl=v=>setTemplates(t=>({...t,[tab]:v}));
+
+  return(
+    <div style={{minHeight:"100vh",background:"#0d1117",color:"#f0f0f0",fontFamily:activeFont,display:"flex",flexDirection:"column"}}>
+      <div style={{background:"#161b22",borderBottom:"1px solid #30363d",padding:"15px 26px",display:"flex",alignItems:"center",gap:14}}>
+        <div style={{fontSize:26}}>🏉</div>
+        <div>
+          <div style={{fontSize:19,fontWeight:700,letterSpacing:1}}>Rugby Social Generator</div>
+          <div style={{fontSize:10,color:"#777",letterSpacing:3,textTransform:"uppercase"}}>Match-day content in seconds</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flex:1,flexWrap:"wrap"}}>
+        {/* LEFT PANEL */}
+        <div style={{width:340,minWidth:300,background:"#161b22",borderRight:"1px solid #30363d",padding:20,overflowY:"auto",maxHeight:"calc(100vh - 62px)"}}>
+
+          {/* Club Setup */}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Club Setup</div>
+            <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+              <button onClick={()=>logoInputRef.current?.click()} style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px dashed rgba(255,255,255,0.16)",borderRadius:8,padding:"10px",color:"#aaa",cursor:"pointer",fontSize:13}}>
+                {logo?"✅ Logo uploaded":"📁 Upload club logo"}
+              </button>
+              {logo&&<img src={logo} style={{height:36,width:36,objectFit:"contain",borderRadius:6}}/>}
+              <input ref={logoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleLogoUpload}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+              <div style={{flex:1}}><Toggle label="Auto-detect colours from logo" checked={autoColor} onChange={setAutoColor}/></div>
+              {autoColor&&palette.length>0&&(
+                <button onClick={shuffleColors} title="Try a different colour combination" style={{flexShrink:0,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:7,padding:"5px 10px",color:"#ccc",cursor:"pointer",fontSize:15,lineHeight:1,marginBottom:10}}>🔀</button>
+              )}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+              {[["primary","Primary"],["secondary","Secondary"],["accent","Accent"]].map(([k,l])=>(
+                <div key={k}>
+                  <div style={{fontSize:9,color:"#666",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{l}</div>
+                  <input type="color" value={colors[k]} disabled={autoColor} onChange={e=>setColors(c=>({...c,[k]:e.target.value}))} style={{width:"100%",height:32,border:"none",borderRadius:6,cursor:autoColor?"not-allowed":"pointer",background:"none",padding:0}}/>
+                </div>
+              ))}
+            </div>
+            {autoColor&&<div style={{fontSize:11,color:"#555",marginTop:4,marginBottom:8,fontStyle:"italic"}}>Colours auto-extracted · primary &amp; secondary always contrast · hit 🔀 to try another combo</div>}
+
+            {/* Format */}
+            <div style={{marginTop:6}}>
+              <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Format</div>
+              <div style={{display:"flex",gap:5}}>
+                {Object.entries(FORMATS).map(([id,f])=>(
+                  <button key={id} onClick={()=>setFormat(id)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:format===id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:format===id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:format===id?colors.secondary:"#aaa",cursor:"pointer",fontSize:11,textAlign:"center"}}>
+                    <div style={{fontWeight:format===id?700:400}}>{f.label.split("·")[0].trim()}</div>
+                    <div style={{fontSize:9,opacity:0.6,marginTop:1}}>{f.tag}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font */}
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:10,color:"#555",letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Font Style</div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {FONT_OPTIONS.map(f=>(
+                  <button key={f.id} onClick={()=>setFontId(f.id)} style={{textAlign:"left",padding:"9px 12px",borderRadius:8,border:fontId===f.id?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:fontId===f.id?`${colors.secondary}1f`:"rgba(255,255,255,0.03)",color:fontId===f.id?colors.secondary:"#aaa",cursor:"pointer",fontSize:13,fontFamily:f.stack}}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Card tabs */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:16}}>
+            {tabs.map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 5px",borderRadius:8,border:"none",background:tab===t.id?colors.secondary:"rgba(255,255,255,0.05)",color:tab===t.id?ctxt(colors.secondary):"#aaa",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?700:400,transition:"all 0.15s",fontFamily:activeFont}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <TemplatePicker value={tmpl} onChange={setTmpl} colors={colors}/>
+
+          {/* Photo upload — shown on every tab */}
+          <PhotoUpload
+            photo={currentPhoto}
+            onUpload={handlePhotoUpload(tab)}
+            onClear={()=>clearPhoto(tab)}
+            inputRef={photoRefs[tab]}
+          />
+
+          {/* FIXTURE */}
+          {tab==="fixture"&&<>
+            <Field label="Home Team" value={fixture.homeTeam} onChange={v=>setFixture(f=>({...f,homeTeam:v}))} placeholder="Scarlets"/>
+            <Field label="Away Team" value={fixture.awayTeam} onChange={v=>setFixture(f=>({...f,awayTeam:v}))} placeholder="Opponents RFC"/>
+            <Field label="Date" value={fixture.date} onChange={v=>setFixture(f=>({...f,date:v}))} placeholder="Sat 8 Mar 2025"/>
+            <Field label="Kick-off Time" value={fixture.kickoff} onChange={v=>setFixture(f=>({...f,kickoff:v}))} placeholder="14:30"/>
+            <Field label="Venue" value={fixture.venue} onChange={v=>setFixture(f=>({...f,venue:v}))} placeholder="Parc y Scarlets"/>
+            <Field label="Competition" value={fixture.competition} onChange={v=>setFixture(f=>({...f,competition:v}))} placeholder="URC"/>
+          </>}
+
+          {/* RESULT */}
+          {tab==="result"&&<>
+            <Field label="Our Team" value={result.ourTeam} onChange={v=>setResult(r=>({...r,ourTeam:v}))} placeholder="Scarlets"/>
+            <Field label="Opponent" value={result.opponent} onChange={v=>setResult(r=>({...r,opponent:v}))} placeholder="Opponents RFC"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+              <Field label="Our Score" value={result.homeScore} onChange={v=>setResult(r=>({...r,homeScore:v}))} placeholder="32"/>
+              <Field label="Their Score" value={result.awayScore} onChange={v=>setResult(r=>({...r,awayScore:v}))} placeholder="17"/>
+            </div>
+            <Field label="Date" value={result.date} onChange={v=>setResult(r=>({...r,date:v}))} placeholder="Sat 8 Mar 2025"/>
+            <Field label="Competition" value={result.competition} onChange={v=>setResult(r=>({...r,competition:v}))} placeholder="URC"/>
+            <Field label="Man of the Match ⭐" value={result.motm} onChange={v=>setResult(r=>({...r,motm:v}))} placeholder="J. Thompson"/>
+            <Field label="Try Scorers" value={result.tries} onChange={v=>setResult(r=>({...r,tries:v}))} placeholder="Smith (2), Jones, Brown" multiline/>
+            <Field label="Conversions" value={result.conversions} onChange={v=>setResult(r=>({...r,conversions:v}))} placeholder="Williams (4/5)"/>
+            <Field label="Penalties" value={result.penalties} onChange={v=>setResult(r=>({...r,penalties:v}))} placeholder="Williams (2)"/>
+            <Toggle label="Show Dick of the Day 🐥" checked={result.showDotd} onChange={v=>setResult(r=>({...r,showDotd:v}))}/>
+            {result.showDotd&&<Field label="Dick of the Day 🐥" value={result.dotd} onChange={v=>setResult(r=>({...r,dotd:v}))} placeholder="P. Harrison (obvious reasons)"/>}
+          </>}
+
+          {/* PLAYER */}
+          {tab==="player"&&<>
+            <Field label="Player Name" value={player.playerName} onChange={v=>setPlayer(p=>({...p,playerName:v}))} placeholder="Sam Warburton"/>
+            <Field label="Position" value={player.position} onChange={v=>setPlayer(p=>({...p,position:v}))} placeholder="Flanker"/>
+            <Field label="Shirt Number" value={player.shirtNumber} onChange={v=>setPlayer(p=>({...p,shirtNumber:v}))} placeholder="7"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+              <Field label="Club Caps" value={player.caps} onChange={v=>setPlayer(p=>({...p,caps:v}))} placeholder="142"/>
+              <Field label="Tries" value={player.tries} onChange={v=>setPlayer(p=>({...p,tries:v}))} placeholder="34"/>
+              <Field label="Age" value={player.age} onChange={v=>setPlayer(p=>({...p,age:v}))} placeholder="27"/>
+              <Field label="Hometown" value={player.hometown} onChange={v=>setPlayer(p=>({...p,hometown:v}))} placeholder="Cardiff"/>
+            </div>
+            <Field label="Player Quote" value={player.quote} onChange={v=>setPlayer(p=>({...p,quote:v}))} placeholder="Every game is a chance to prove yourself." multiline/>
+          </>}
+
+          {/* TEAM SHEET */}
+          {tab==="announcement"&&<>
+            <Field label="Team Name" value={announcement.teamName} onChange={v=>setAnnouncement(a=>({...a,teamName:v}))} placeholder="Scarlets"/>
+            <Field label="vs Opponent" value={announcement.opponent} onChange={v=>setAnnouncement(a=>({...a,opponent:v}))} placeholder="Ulster"/>
+            <Field label="Date" value={announcement.date} onChange={v=>setAnnouncement(a=>({...a,date:v}))} placeholder="Sat 15 Mar"/>
+            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Starting XV</div>
+            {POSITIONS.slice(0,15).map((pos,i)=>(
+              <SquadPlayerField key={i} pos={pos} player={announcement.players[i]} onNameChange={v=>updateSquadPlayer(i,"name",v)} onCaptain={()=>updateSquadPlayer(i,"captain",!announcement.players[i].captain)} onVice={()=>updateSquadPlayer(i,"vice",!announcement.players[i].vice)} colors={colors}/>
+            ))}
+            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Replacements</div>
+            {POSITIONS.slice(15).map((pos,i)=>(
+              <SquadPlayerField key={i+15} pos={pos} player={announcement.players[15+i]} onNameChange={v=>updateSquadPlayer(15+i,"name",v)} onCaptain={()=>updateSquadPlayer(15+i,"captain",!announcement.players[15+i].captain)} onVice={()=>updateSquadPlayer(15+i,"vice",!announcement.players[15+i].vice)} colors={colors}/>
+            ))}
+          </>}
+
+          <button onClick={downloadCard} style={{width:"100%",marginTop:14,padding:"13px",background:colors.secondary,color:ctxt(colors.secondary),border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer",letterSpacing:1,fontFamily:activeFont}}>
+            ⬇ Download Card
+          </button>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:32,background:"#0d1117",overflowY:"auto",maxHeight:"calc(100vh - 62px)"}}>
+          <div style={{paddingTop:tab==="announcement"?0:32}}>
+            <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#333",textAlign:"center",marginBottom:16}}>Live Preview</div>
+            <div ref={cardRef} style={{boxShadow:"0 20px 60px rgba(0,0,0,0.6)",borderRadius:12}}>
+              {tab==="fixture"&&tmpl===1&&<FixtureCard1 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="fixture"&&tmpl===2&&<FixtureCard2 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="fixture"&&tmpl===3&&<FixtureCard3 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="result"&&<ResultCardBase data={result} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} dims={dims}/>}
+              {tab==="player"&&tmpl===1&&<PlayerCard1 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="player"&&tmpl===2&&<PlayerCard2 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="player"&&tmpl===3&&<PlayerCard3 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} dims={dims}/>}
+              {tab==="announcement"&&<TeamAnnouncementCard data={announcement} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} dims={dims}/>}
+            </div>
+            <div style={{textAlign:"center",marginTop:12,marginBottom:24,fontSize:11,color:"#2a2a2a"}}>Instagram / Twitter ready · 1080px equivalent</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<RugbySocialGenerator />);
+  </script>
+</body>
+</html>
