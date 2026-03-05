@@ -160,7 +160,7 @@ function sponsorPad(sponsor) {
   return sponsor.position === "top" ? {top: SPONSOR_H} : {bottom: SPONSOR_H};
 }
 
-function FixtureCard1({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor}){
+function FixtureCard1({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor,clubName}){
   const {primary,secondary}=colors; const txt=ctxt(primary);
   return(
     <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
@@ -170,10 +170,10 @@ function FixtureCard1({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
       <div style={{position:"absolute",top:0,left:0,right:0,height:6,background:secondary,zIndex:3}}/>
       <div style={{padding:"32px 40px",paddingTop:`calc(32px + ${sponsorPad(sponsor).top}px)`,paddingBottom:`calc(32px + ${sponsorPad(sponsor).bottom}px)`,display:"flex",flexDirection:"column",height:"100%",boxSizing:"border-box",position:"relative",zIndex:3}}>
         {logo&&<img src={logo} style={{height:68,width:68,objectFit:"contain",marginBottom:16,filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.6))"}}/>}
-        <div style={{fontSize:12,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:8}}>Fixture Preview</div>
-        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:6,textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.homeTeam||"Home Team"}</div>
+        <div style={{fontSize:12,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:8}}>{data.isHome?"Home Fixture":"Away Fixture"}</div>
+        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:6,textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.isHome?(clubName||"Home Team"):(data.opponent||"Opponent")}</div>
         <div style={{fontSize:22,color:secondary,letterSpacing:2,marginBottom:6}}>vs</div>
-        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:"auto",textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.awayTeam||"Away Team"}</div>
+        <div style={{fontSize:38,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:"auto",textShadow:"0 2px 12px rgba(0,0,0,0.7)"}}>{data.isHome?(data.opponent||"Away Team"):(clubName||"Away Team")}</div>
         <div style={{borderTop:`1px solid ${secondary}66`,paddingTop:16,display:"flex",gap:28,flexWrap:"wrap"}}>
           {data.date&&<InfoPill label="Date" value={data.date} colors={colors}/>}
           {data.kickoff&&<InfoPill label="Kick-off" value={data.kickoff} colors={colors}/>}
@@ -185,7 +185,7 @@ function FixtureCard1({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
   );
 }
 
-function FixtureCard2({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor}){
+function FixtureCard2({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor,clubName}){
   const {primary,secondary}=colors; const txtS=ctxt(secondary);
   return(
     <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
@@ -202,13 +202,13 @@ function FixtureCard2({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
           <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase"}}>Fixture</div>
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:12}}>
-          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.homeTeam||"Home Team"}</div>
+          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.isHome?(clubName||"Home Team"):(data.opponent||"Opponent")}</div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{flex:1,height:2,background:`${secondary}55`}}/>
             <div style={{fontSize:18,fontWeight:900,color:secondary,letterSpacing:4}}>VS</div>
             <div style={{flex:1,height:2,background:`${secondary}55`}}/>
           </div>
-          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.awayTeam||"Away Team"}</div>
+          <div style={{fontSize:34,fontWeight:800,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.isHome?(data.opponent||"Away Team"):(clubName||"Away Team")}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
           {data.date&&<div style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",borderRadius:6,padding:"8px 10px",border:"1px solid rgba(255,255,255,0.1)"}}><div style={{fontSize:9,color:secondary,letterSpacing:2,textTransform:"uppercase"}}>Date</div><div style={{color:"#fff",fontSize:13,fontWeight:700}}>{data.date}</div></div>}
@@ -220,7 +220,7 @@ function FixtureCard2({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
   );
 }
 
-function FixtureCard3({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor}){
+function FixtureCard3({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,sponsor,clubName}){
   const {primary,secondary}=colors;
   return(
     <div style={{width:dims.w,height:dims.h,background:primary,position:"relative",fontFamily:font,overflow:"hidden",borderRadius:12}}>
@@ -236,9 +236,9 @@ function FixtureCard3({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
           <div>
             <div style={{fontSize:11,letterSpacing:4,color:secondary,textTransform:"uppercase",marginBottom:12}}>Upcoming Match</div>
             {data.competition&&<div style={{display:"inline-block",background:secondary,color:ctxt(secondary),fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1,marginBottom:16}}>{data.competition}</div>}
-            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,marginBottom:8,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.homeTeam||"Home"}</div>
+            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,marginBottom:8,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.isHome?(clubName||"Home"):(data.opponent||"Opponent")}</div>
             <div style={{fontSize:16,color:secondary,letterSpacing:3,marginBottom:8}}>— vs —</div>
-            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.awayTeam||"Away"}</div>
+            <div style={{fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>{data.isHome?(data.opponent||"Away"):(clubName||"Away")}</div>
           </div>
           {logo&&<img src={logo} style={{height:60,width:60,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
         </div>
@@ -254,7 +254,7 @@ function FixtureCard3({data,colors,logo,font,photo,bgOpacity=1,bgBlur=0,dims,spo
 
 // ── RESULT CARDS ─────────────────────────────────────────────────
 
-function ResultCardBase({data,colors,logo,font,variant,photo,bgOpacity=1,bgBlur=0,dims,sponsor}){
+function ResultCardBase({data,colors,logo,font,variant,photo,bgOpacity=1,bgBlur=0,dims,sponsor,clubName}){
   const {primary,secondary}=colors;
   const won=parseInt(data.homeScore||0)>parseInt(data.awayScore||0);
   const drew=parseInt(data.homeScore||0)===parseInt(data.awayScore||0);
@@ -274,7 +274,7 @@ function ResultCardBase({data,colors,logo,font,variant,photo,bgOpacity=1,bgBlur=
         </div>
         <div style={{textAlign:"center",marginBottom:20}}>
           <div style={{fontSize:72,fontWeight:900,color:"#fff",letterSpacing:-4,lineHeight:1,textShadow:"0 2px 20px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}<span style={{color:rc,margin:"0 4px"}}>:</span>{data.awayScore??"–"}</div>
-          <div style={{fontSize:14,color:"#ccc",marginTop:6,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{data.ourTeam||"Our Team"} <span style={{color:"#555"}}>vs</span> {data.opponent||"Opponent"}</div>
+          <div style={{fontSize:14,color:"#ccc",marginTop:6,textShadow:"0 1px 6px rgba(0,0,0,0.8)"}}>{clubName||data.ourTeam||"Our Team"} <span style={{color:"#555"}}>vs</span> {data.opponent||"Opponent"}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,flex:1}}>
           {data.motm&&<StatBlock label="Man of the Match" value={data.motm} colors={colors}/>}
@@ -301,7 +301,7 @@ function ResultCardBase({data,colors,logo,font,variant,photo,bgOpacity=1,bgBlur=
           {logo&&<img src={logo} style={{height:46,width:46,objectFit:"contain",filter:"drop-shadow(0 2px 12px rgba(0,0,0,0.7))"}}/>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
-          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>{data.ourTeam||"Our Team"}</div></div>
+          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>{clubName||data.ourTeam||"Our Team"}</div></div>
           <div style={{textAlign:"center"}}>
             <div style={{fontSize:56,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1,textShadow:"0 2px 16px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}–{data.awayScore??"–"}</div>
             <div style={{display:"inline-block",background:rc,color:"#000",padding:"2px 12px",borderRadius:20,fontSize:11,fontWeight:700,marginTop:4}}>{label}</div>
@@ -336,7 +336,7 @@ function ResultCardBase({data,colors,logo,font,variant,photo,bgOpacity=1,bgBlur=
           <div style={{background:rc,color:"#000",padding:"4px 16px",borderRadius:20,fontSize:12,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{label}</div>
         </div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{data.isHome?"Home":"Away"}</div><div style={{fontSize:20,fontWeight:700,color:"#fff",textShadow:"0 1px 8px rgba(0,0,0,0.8)"}}>{data.ourTeam||"Our Team"}</div></div>
+          <div style={{flex:1}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{data.isHome?"Home":"Away"}</div><div style={{fontSize:20,fontWeight:700,color:"#fff",textShadow:"0 1px 8px rgba(0,0,0,0.8)"}}>{clubName||data.ourTeam||"Our Team"}</div></div>
           <div style={{fontSize:50,fontWeight:900,color:"#fff",letterSpacing:-2,padding:"0 16px",textShadow:"0 2px 16px rgba(0,0,0,0.8)"}}>{data.homeScore??"–"}–{data.awayScore??"–"}</div>
           <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:11,color:secondary,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>{data.isHome?"Away":"Home"}</div><div style={{fontSize:20,fontWeight:700,color:"#fff",textShadow:"0 1px 8px rgba(0,0,0,0.8)"}}>{data.opponent||"Opponent"}</div></div>
         </div>
@@ -562,7 +562,8 @@ function TeamAnnouncementCard({data,colors,logo,font,variant,photo,bgOpacity=1,b
           <span style={{fontSize:slim?10:11,fontWeight:800,color:txtS}}>{i+1}</span>
         </div>
         <div style={{flex:1,background:"rgba(0,0,0,0.55)",padding:slim?"4px 9px":"5px 10px",display:"flex",alignItems:"center",justifyContent:"space-between",zIndex:4}}>
-          <span style={{fontSize:slim?11:12,fontWeight:700,color:"#fff",textTransform:"uppercase",letterSpacing:0.4}}>
+          <span style={{fontSize:slim?11:12,fontWeight:700,color:"#fff",textTransform:"uppercase",letterSpacing:0.4,display:"flex",alignItems:"center",gap:5}}>
+            {p.flag&&<span style={{fontSize:slim?12:13,lineHeight:1}}>{p.flag}</span>}
             {p.name||<span style={{opacity:0.3,fontWeight:400,textTransform:"none",fontSize:10}}>TBC</span>}
           </span>
           {badge&&<span style={{fontSize:10,fontWeight:800,color:secondary,marginLeft:6,flexShrink:0}}>{badge}</span>}
@@ -635,7 +636,7 @@ function TeamAnnouncementCard({data,colors,logo,font,variant,photo,bgOpacity=1,b
                     <span style={{fontSize:11,fontWeight:800,color:txtS}}>{i+1}</span>
                   </div>
                   <div style={{flex:1,background:"rgba(0,0,0,0.55)",borderBottom:"1px solid rgba(255,255,255,0.05)",padding:"5px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,fontWeight:600,color:"#eee",letterSpacing:0.3}}>{p.name||<span style={{opacity:0.15,fontSize:11}}>TBC</span>}</span>
+                    <span style={{fontSize:12,fontWeight:600,color:"#eee",letterSpacing:0.3,display:"flex",alignItems:"center",gap:5}}>{p.flag&&<span style={{fontSize:13}}>{p.flag}</span>}{p.name||<span style={{opacity:0.15,fontSize:11}}>TBC</span>}</span>
                     {badge&&<span style={{fontSize:10,fontWeight:800,color:secondary,marginLeft:6}}>{badge}</span>}
                   </div>
                 </div>
@@ -735,12 +736,15 @@ function PhotoUpload({photo, onUpload, onClear, inputRef, opacity, blur, onOpaci
   );
 }
 
-function SquadPlayerField({pos,player,onNameChange,onCaptain,onVice,colors}){
+function SquadPlayerField({pos,player,onNameChange,onFlagChange,onCaptain,onVice,colors}){
   const btnBase={border:"none",borderRadius:5,fontSize:10,fontWeight:800,cursor:"pointer",padding:"4px 7px",letterSpacing:1,transition:"all 0.15s"};
   return(
     <div style={{marginBottom:7}}>
       <label style={{display:"block",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:3}}>{pos}</label>
       <div style={{display:"flex",gap:5,alignItems:"center"}}>
+        <select value={player.flag||""} onChange={e=>onFlagChange(e.target.value)} style={{width:52,flexShrink:0,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:7,padding:"7px 4px",color:"#f0f0f0",fontSize:15,fontFamily:"inherit",outline:"none",cursor:"pointer",textAlign:"center"}}>
+          {COUNTRIES.map(c=><option key={c.code} value={c.code} style={{background:"#1a1a2e"}}>{c.code||"—"}</option>)}
+        </select>
         <input value={player.name} onChange={e=>onNameChange(e.target.value)} placeholder="Player name" style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"#f0f0f0",fontSize:13,fontFamily:"inherit",boxSizing:"border-box",outline:"none"}}/>
         <button onClick={onCaptain} style={{...btnBase,background:player.captain?colors.secondary:"rgba(255,255,255,0.08)",color:player.captain?ctxt(colors.secondary):"#777"}}>C</button>
         <button onClick={onVice} style={{...btnBase,background:player.vice?colors.secondary:"rgba(255,255,255,0.08)",color:player.vice?ctxt(colors.secondary):"#777"}}>VC</button>
@@ -768,16 +772,29 @@ function TemplatePicker({value,onChange,colors}){
 
 const COUNTRIES=[
   {code:"",label:"No flag"},
-  {code:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",label:"England"},{code:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",label:"Scotland"},{code:"🏴󠁧󠁢󠁷󠁬󠁳󠁿",label:"Wales"},
-  {code:"🇮🇪",label:"Ireland"},{code:"🇫🇷",label:"France"},{code:"🇮🇹",label:"Italy"},
+  // Home Nations
+  {code:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",label:"England"},{code:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",label:"Scotland"},{code:"🏴󠁧󠁢󠁷󠁬󠁳󠁿",label:"Wales"},{code:"🇮🇪",label:"Ireland"},
+  // Six Nations
+  {code:"🇫🇷",label:"France"},{code:"🇮🇹",label:"Italy"},
+  // Europe
   {code:"🇷🇴",label:"Romania"},{code:"🇬🇪",label:"Georgia"},{code:"🇵🇹",label:"Portugal"},
+  {code:"🇷🇺",label:"Russia"},{code:"🇪🇸",label:"Spain"},{code:"🇧🇪",label:"Belgium"},
+  {code:"🇳🇱",label:"Netherlands"},{code:"🇩🇪",label:"Germany"},{code:"🇨🇿",label:"Czech Republic"},
+  {code:"🇵🇱",label:"Poland"},{code:"🇸🇪",label:"Sweden"},
+  // Southern Hemisphere big 3
   {code:"🇿🇦",label:"South Africa"},{code:"🇳🇿",label:"New Zealand"},{code:"🇦🇺",label:"Australia"},
-  {code:"🇦🇷",label:"Argentina"},{code:"🇯🇵",label:"Japan"},{code:"🇫🇯",label:"Fiji"},
-  {code:"🇸🇦",label:"Samoa"},{code:"🇹🇴",label:"Tonga"},{code:"🇺🇸",label:"USA"},
-  {code:"🇨🇦",label:"Canada"},{code:"🇺🇾",label:"Uruguay"},{code:"🇳🇦",label:"Namibia"},
-  {code:"🇿🇼",label:"Zimbabwe"},{code:"🇭🇰",label:"Hong Kong"},{code:"🇸🇬",label:"Singapore"},
-  {code:"🇷🇺",label:"Russia"},{code:"🇸🇵",label:"Spain"},{code:"🇧🇪",label:"Belgium"},
-  {code:"🇳🇱",label:"Netherlands"},{code:"🇩🇪",label:"Germany"},{code:"🇧🇷",label:"Brazil"},
+  // Americas
+  {code:"🇦🇷",label:"Argentina"},{code:"🇺🇸",label:"USA"},{code:"🇨🇦",label:"Canada"},
+  {code:"🇺🇾",label:"Uruguay"},{code:"🇧🇷",label:"Brazil"},{code:"🇨🇱",label:"Chile"},
+  // Asia / Pacific
+  {code:"🇯🇵",label:"Japan"},{code:"🇮🇳",label:"India"},{code:"🇭🇰",label:"Hong Kong"},
+  {code:"🇸🇬",label:"Singapore"},{code:"🇰🇷",label:"South Korea"},{code:"🇨🇳",label:"China"},
+  {code:"🇵🇭",label:"Philippines"},{code:"🇲🇾",label:"Malaysia"},{code:"🇮🇩",label:"Indonesia"},
+  // Pacific Islands
+  {code:"🇫🇯",label:"Fiji"},{code:"🇼🇸",label:"Samoa"},{code:"🇹🇴",label:"Tonga"},{code:"🇵🇬",label:"Papua New Guinea"},
+  // Africa
+  {code:"🇳🇦",label:"Namibia"},{code:"🇿🇼",label:"Zimbabwe"},{code:"🇰🇪",label:"Kenya"},
+  {code:"🇺🇬",label:"Uganda"},{code:"🇳🇬",label:"Nigeria"},{code:"🇲🇦",label:"Morocco"},
 ];
 const POSITIONS=["1 - Loosehead Prop","2 - Hooker","3 - Tighthead Prop","4 - Lock","5 - Lock","6 - Blindside Flanker","7 - Openside Flanker","8 - Number 8","9 - Scrum Half","10 - Fly Half","11 - Left Wing","12 - Inside Centre","13 - Outside Centre","14 - Right Wing","15 - Full Back","16 - Replacement","17 - Replacement","18 - Replacement","19 - Replacement","20 - Replacement","21 - Replacement","22 - Replacement","23 - Replacement"];
 
@@ -804,10 +821,10 @@ function RugbySocialGenerator(){
   const photoRefs={fixture:useRef(),result:useRef(),player:useRef(),announcement:useRef(),motm:useRef(),dotd:useRef()};
   const cardRef=useRef();
 
-  const [fixture,setFixture]=useState({homeTeam:"",awayTeam:"",date:"",kickoff:"",venue:"",competition:""});
-  const [result,setResult]=useState({ourTeam:"",opponent:"",homeScore:"",awayScore:"",isHome:true,date:"",competition:"",motm:"",tries:"",conversions:"",penalties:"",showDotd:false,dotd:""});
+  const [fixture,setFixture]=useState({opponent:"",isHome:true,date:"",kickoff:"",venue:"",competition:""});
+  const [result,setResult]=useState({opponent:"",homeScore:"",awayScore:"",isHome:true,date:"",competition:"",motm:"",tries:"",conversions:"",penalties:"",showDotd:false,dotd:""});
   const [player,setPlayer]=useState({playerName:"",position:"",flag:"",caps:"",tries:"",quote:""});
-  const [announcement,setAnnouncement]=useState({opponent:"",date:"",isHome:true,players:Array(23).fill(null).map(()=>({name:"",captain:false,vice:false}))});
+  const [announcement,setAnnouncement]=useState({opponent:"",date:"",isHome:true,players:Array(23).fill(null).map(()=>({name:"",flag:"",captain:false,vice:false}))});
   const [motm,setMotm]=useState({playerName:"",position:"",flag:"",caps:"",tries:"",reason:""});
   const [dotd,setDotd]=useState({playerName:"",position:"",flag:"",caps:"",tries:"",reason:"",awardName:"Dick of the Day",swapColors:true});
   const [sponsor,setSponsor]=useState({show:false,name:"",position:"bottom"});
@@ -935,10 +952,10 @@ function RugbySocialGenerator(){
   const previewScale = isMobile ? Math.min(1, (window.innerWidth - 32) / dims.w) : 1;
 
   const cardRender = <>
-    {tab==="fixture"&&tmpl===1&&<FixtureCard1 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-    {tab==="fixture"&&tmpl===2&&<FixtureCard2 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-    {tab==="fixture"&&tmpl===3&&<FixtureCard3 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
-    {tab==="result"&&<ResultCardBase data={result} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
+    {tab==="fixture"&&tmpl===1&&<FixtureCard1 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor} clubName={clubName}/>}
+    {tab==="fixture"&&tmpl===2&&<FixtureCard2 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor} clubName={clubName}/>}
+    {tab==="fixture"&&tmpl===3&&<FixtureCard3 data={fixture} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor} clubName={clubName}/>}
+    {tab==="result"&&<ResultCardBase data={result} colors={colors} logo={logo} font={activeFont} variant={tmpl} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor} clubName={clubName}/>}
     {tab==="player"&&tmpl===1&&<PlayerCard1 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
     {tab==="player"&&tmpl===2&&<PlayerCard2 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
     {tab==="player"&&tmpl===3&&<PlayerCard3 data={player} colors={colors} logo={logo} font={activeFont} photo={currentPhoto} bgOpacity={currentBg.opacity} bgBlur={currentBg.blur} dims={dims} sponsor={sponsor}/>}
@@ -1031,15 +1048,26 @@ function RugbySocialGenerator(){
     <PhotoUpload photo={currentPhoto} onUpload={handlePhotoUpload(tab)} onClear={()=>clearPhoto(tab)} inputRef={photoRefs[tab]} opacity={currentBg.opacity} blur={currentBg.blur} onOpacity={setBgOpacity} onBlur={setBgBlur}/>
 
     {tab==="fixture"&&<>
-      <Field label="Home Team" value={fixture.homeTeam} onChange={v=>setFixture(f=>({...f,homeTeam:v}))} placeholder="Scarlets"/>
-      <Field label="Away Team" value={fixture.awayTeam} onChange={v=>setFixture(f=>({...f,awayTeam:v}))} placeholder="Opponents RFC"/>
+      <div style={{marginBottom:12,padding:"10px 12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,fontSize:12,color:"#666"}}>
+        Your club name (<span style={{color:"#aaa",fontWeight:600}}>{clubName||"set above"}</span>) will appear automatically as the home or away team.
+      </div>
+      <Field label="vs Opponent" value={fixture.opponent} onChange={v=>setFixture(f=>({...f,opponent:v}))} placeholder="Llandrindod Wells RFC"/>
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#777",marginBottom:6}}>Home or Away?</div>
+        <div style={{display:"flex",gap:6}}>
+          {[{v:true,l:"🏠 Home"},{v:false,l:"✈️ Away"}].map(({v,l})=>(
+            <button key={String(v)} onClick={()=>setFixture(f=>({...f,isHome:v}))} style={{flex:1,padding:"10px",borderRadius:8,border:fixture.isHome===v?`1px solid ${colors.secondary}`:"1px solid rgba(255,255,255,0.09)",background:fixture.isHome===v?`${colors.secondary}22`:"rgba(255,255,255,0.04)",color:fixture.isHome===v?colors.secondary:"#777",cursor:"pointer",fontSize:13,fontWeight:fixture.isHome===v?700:400}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
       <Field label="Date" value={fixture.date} onChange={v=>setFixture(f=>({...f,date:v}))} placeholder="Sat 8 Mar 2025"/>
       <Field label="Kick-off Time" value={fixture.kickoff} onChange={v=>setFixture(f=>({...f,kickoff:v}))} placeholder="14:30"/>
       <Field label="Venue" value={fixture.venue} onChange={v=>setFixture(f=>({...f,venue:v}))} placeholder="Parc y Scarlets"/>
       <Field label="Competition" value={fixture.competition} onChange={v=>setFixture(f=>({...f,competition:v}))} placeholder="URC"/>
     </>}
     {tab==="result"&&<>
-      <Field label="Our Team" value={result.ourTeam} onChange={v=>setResult(r=>({...r,ourTeam:v}))} placeholder="Scarlets"/>
       <Field label="Opponent" value={result.opponent} onChange={v=>setResult(r=>({...r,opponent:v}))} placeholder="Opponents RFC"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
         <Field label="Our Score" value={result.homeScore} onChange={v=>setResult(r=>({...r,homeScore:v}))} placeholder="32"/>
@@ -1084,11 +1112,11 @@ function RugbySocialGenerator(){
       </div>
       <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Starting XV</div>
       {POSITIONS.slice(0,15).map((pos,i)=>(
-        <SquadPlayerField key={i} pos={pos} player={announcement.players[i]} onNameChange={v=>updateSquadPlayer(i,"name",v)} onCaptain={()=>updateSquadPlayer(i,"captain",!announcement.players[i].captain)} onVice={()=>updateSquadPlayer(i,"vice",!announcement.players[i].vice)} colors={colors}/>
+        <SquadPlayerField key={i} pos={pos} player={announcement.players[i]} onNameChange={v=>updateSquadPlayer(i,"name",v)} onFlagChange={v=>updateSquadPlayer(i,"flag",v)} onCaptain={()=>updateSquadPlayer(i,"captain",!announcement.players[i].captain)} onVice={()=>updateSquadPlayer(i,"vice",!announcement.players[i].vice)} colors={colors}/>
       ))}
       <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#555",margin:"12px 0 7px"}}>Replacements</div>
       {POSITIONS.slice(15).map((pos,i)=>(
-        <SquadPlayerField key={i+15} pos={pos} player={announcement.players[15+i]} onNameChange={v=>updateSquadPlayer(15+i,"name",v)} onCaptain={()=>updateSquadPlayer(15+i,"captain",!announcement.players[15+i].captain)} onVice={()=>updateSquadPlayer(15+i,"vice",!announcement.players[15+i].vice)} colors={colors}/>
+        <SquadPlayerField key={i+15} pos={pos} player={announcement.players[15+i]} onNameChange={v=>updateSquadPlayer(15+i,"name",v)} onFlagChange={v=>updateSquadPlayer(15+i,"flag",v)} onCaptain={()=>updateSquadPlayer(15+i,"captain",!announcement.players[15+i].captain)} onVice={()=>updateSquadPlayer(15+i,"vice",!announcement.players[15+i].vice)} colors={colors}/>
       ))}
     </>}
     {tab==="motm"&&<>
